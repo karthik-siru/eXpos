@@ -1,0 +1,24 @@
+//set the state of the process as terminated 
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 4] = TERMINATED ;
+
+//only idle is present 
+alias check R0;
+check = 1;
+
+alias pid R1;
+pid = 1 ;
+
+while(pid < 16)do
+   if (([PROCESS_TABLE + pid*16 +4])!= TERMINATED)then
+      check = 0;
+      break;
+   endif;
+   pid = pid +1 ;
+endwhile;
+
+if (check == 1)then
+   halt;
+endif;
+
+call MOD_5; //else call the scheduler 
+

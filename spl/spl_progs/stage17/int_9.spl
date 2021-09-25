@@ -1,0 +1,182 @@
+// set the mode 
+		[PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9 ] = 9 ;
+
+		alias userSP R0;
+		userSP = SP;
+
+// save the SP and switch to kernel
+
+		[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16  + 13] = SP ;
+		SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11]* 512 -1 ;
+
+// get the file name from userStack
+
+		alias physicalAddr R1 ;
+		alias physicalPage R2 ;
+
+		alias fileName R3;
+
+		physicalPage = [PTBR + ((userSP-4)/512)*2 ];
+		physicalAddr = physicalPage*512 + (userSP-4)%512 ;
+
+		fileName = [physicalAddr];
+
+// ---------------------------
+
+		alias found R4 ;
+		alias inodeIndex R5;
+		alias i R6;
+
+		found = 0;
+		i = 0;
+
+		while (i<MAX_FILE_NUM) do 
+			
+			if ([INODE_TABLE + 16*i + 1] == fileName)then 
+			found = 1;
+			inodeIndex = i;
+			break;  
+			endif;
+			i = i +1 ;
+
+		endwhile;
+
+// --------------------------
+
+// not found 
+		if(found == 0)then 
+
+			alias physicalAddrRetVal R7;
+			physicalAddrRetVal = [PTBR + ((userSP-1)/512)*2]*512 + (userSP-1)%512 ;
+			[physicalAddrRetVal] = -1 ;
+
+			// reset the mode 
+			[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+			
+			SP = userSP;
+			ireturn;
+		endif;
+
+// --------------------------
+
+// call the exit process 
+		alias cpid R8;
+		cpid = [SYSTEM_STATUS_TABLE + 1];
+
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8); 
+		R1 = 3;
+		R2 = cpid;
+
+		call MOD_1 ;
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8); 
+
+// --------------------------------
+
+//set the same userareapage
+		alias userareapage R9;
+		userareapage = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 11];
+
+		[ MEMORY_FREE_LIST + userareapage ]=[ MEMORY_FREE_LIST + userareapage ]+1;
+
+// free page count 
+		[SYSTEM_STATUS_TABLE+2]=[SYSTEM_STATUS_TABLE+2]-1;
+
+//Set SP to top of kernel stack
+		SP = userareapage* 512 - 1;
+
+// change the state  
+		[PROCESS_TABLE + (cpid * 16) + 4]=RUNNING;
+
+		//Update Inode Index Field
+		[PROCESS_TABLE + (cpid* 16) + 7]=inodeIndex;
+
+// ------------------------------------
+
+// get the pages using getpages func (MOD_2)
+
+         PTBR = PAGE_TABLE_BASE + cpid*20;
+
+//-----------------------------
+
+// Library
+		[PTBR+0]=63;
+		[PTBR+1]="0100";
+		[PTBR+2]=64;
+		[PTBR+3]="0100";
+
+// ----------------------------
+
+// heap 
+
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+		R1 = 1;
+		call MOD_2;
+		[PTBR + 4] = R0;
+		[PTBR + 5] = "0110";
+
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+
+
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+		R1 = 1;
+		call MOD_2;
+		[PTBR + 6] = R0;
+		[PTBR + 7] = "0110";
+
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+
+// -------------------------------
+
+// Stack 
+
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+		R1 = 1;
+		call MOD_2;
+		[PTBR + 16] = R0;
+		[PTBR + 17] = "0110";
+
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+		R1 = 1;
+		call MOD_2;
+		[PTBR + 18] = R0;
+		[PTBR + 19] = "0110";
+
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+
+// ------------------------------------
+
+
+
+// load code pages : (load only if exits)
+
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+		alias codeBlock R9;
+		i=0;
+		while(i<4) do
+			codeBlock=[INODE_TABLE+inodeIndex*16+8+i];
+			if(codeBlock!=-1) then
+			    //GET FREEPAGE
+					R1=1; 
+					call MOD_2; 
+					alias pageNum R0;
+					[PTBR+2*i+8]=pageNum;
+					[PTBR+2*i+9]="0100";
+				loadi(pageNum , codeBlock);       
+			endif;
+			i=i+1;
+		endwhile;
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
+
+// -------------------------- 
+
+// set top of stack as CodePage-Start Addrs 
+		[[PTBR+16]*512] = [[PTBR+8]*512+1];
+
+		SP=8*512;
+
+		//reset mode flag 
+		[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+
+		ireturn;

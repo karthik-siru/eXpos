@@ -1,0 +1,75 @@
+alias funcNum R1;
+alias cpid R2;
+
+
+//ACQUIRE DISK 
+
+	if (funcNum == 3)then
+
+		while([DISK_STATUS_TABLE] == 1)do
+			//SET THE STATE 
+			    [PROCESS_TABLE + cpid*16 + 4] = WAIT_DISK;
+			//CALL SCHEDULER
+				multipush(  R1, R2, R3);
+				call MOD_5;
+				multipop(R1, R2, R3 );
+		endwhile;
+
+
+		//SET THE DISK STATUS 
+			[DISK_STATUS_TABLE] = 1;
+			[DISK_STATUS_TABLE+4] = cpid;
+			return;
+
+	endif;
+
+	
+
+//ACQUIRE TERMINAL 
+	if (funcNum == 8)then
+		//loop  until terminal is free ..
+			while( ([TERMINAL_STATUS_TABLE] ) == 1) do
+
+				[ (PROCESS_TABLE + (cpid * 16)) + 4 ] = WAIT_TERMINAL;
+				multipush(R1, R2);
+				call MOD_5;
+				multipop( R1, R2);
+
+			endwhile;
+
+			[TERMINAL_STATUS_TABLE] = 1;
+			[TERMINAL_STATUS_TABLE + 1] = cpid;
+			return;
+
+	endif;
+
+
+
+// RELEASE TERMINAL
+	if(funcNum == 9)then
+	
+		if([TERMINAL_STATUS_TABLE + 1] == cpid) then
+
+				[TERMINAL_STATUS_TABLE] = 0;
+				alias id R6;
+				id=1;
+				while(id<=15) do
+					if([PROCESS_TABLE+16*id+4] == WAIT_TERMINAL) then
+						[PROCESS_TABLE+16*id+4]=READY;
+					endif;
+					id=id+1;
+				endwhile;
+
+				R0=0; // sucess 
+				return;
+
+		else
+
+				R0=-1;
+				return;
+
+		endif;
+	
+	endif;
+
+return;

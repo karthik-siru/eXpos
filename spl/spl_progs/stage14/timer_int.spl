@@ -1,0 +1,29 @@
+//switch to kernel stack
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16)+13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16)+11]*512-1;
+
+
+backup;
+
+// set the state to ready 
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16)+4]=READY;
+
+//loop and increment tick values of process 
+
+alias count R1;
+count = 0 ;
+
+while (count < 16)do    
+     [PROCESS_TABLE + count*16] =  [PROCESS_TABLE + count*16] +1;
+     count = count +1;
+endwhile;
+
+//call scheduler 
+call MOD_5; 
+
+restore;
+
+SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13]; 
+
+ireturn;
+

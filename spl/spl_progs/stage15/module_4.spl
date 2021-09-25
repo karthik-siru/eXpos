@@ -1,0 +1,29 @@
+alias funcNum R1;
+alias cpid R2;
+alias word R3;
+alias ret_val R6;
+
+//  checking funcNum 
+if (funcNum == 3 )then
+   
+   //multipush used context 
+   multipush( R0, R1, R2, R3, R4,R5,R6);
+   R1 = 8;
+   R2 = cpid;
+   
+   call MOD_0;     // get terminal 
+   multipop( R0, R1, R2, R3, R4,R5,R6);
+
+   print word;
+  
+   multipush( R0, R1, R2, R3, R4,R5,R6);
+   R1 = 9;
+   R2 = cpid;
+   
+   call MOD_0;   //Releasing terminal 
+   ret_val =  R0;
+   multipop( R0, R1, R2, R3, R4,R5,R6);
+
+endif;
+
+return;

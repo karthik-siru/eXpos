@@ -1,0 +1,66 @@
+alias funcNum R1;
+alias cpid R2;
+alias word R3;
+
+// ---TERMINAL -WRITE 
+if (funcNum == 3 )then
+   
+   //---multipush used context 
+   multipush(  R1, R2, R3);
+   R1 = 8;
+   R2 = cpid;
+   
+   call MOD_0;     // GET TERMINAL 
+   multipop(  R1, R2, R3);
+
+   print word;
+  
+   multipush( R1, R2, R3);
+   R1 = 9;
+   R2 = cpid;
+   
+   call MOD_0;   // RELEASE TERMINAL
+   multipop( R1, R2, R3);
+
+
+endif;
+
+
+// --- TERMINAL  READ   
+if(funcNum == 4)then
+
+      // PUSH USED CONTEXT
+      multipush( R1, R2, R3);
+
+      R1 = 8;
+      R2 = cpid;
+      
+      call MOD_0; // GET TERMINAL
+
+      multipop( R1, R2, R3);
+
+      read;
+
+      [PROCESS_TABLE + cpid*16 + 4 ]= WAIT_TERMINAL;
+
+      // EXECUTE OTHER PROCESS .  
+      multipush( R0, R1, R2, R3, R4,R5,R6);
+
+      call MOD_5;
+
+      multipop( R0, R1, R2, R3, R4,R5,R6);
+
+      alias physicalPageNum R4;
+      alias offset R5;
+
+      physicalPageNum = [PTBR + 2 * (word/512)];
+      offset = word% 512;
+
+      [physicalPageNum*512 + offset] = [PROCESS_TABLE + (cpid*16) + 8];
+
+      return;
+
+   endif;
+
+
+return;

@@ -79,6 +79,44 @@ alias i R4;
                         [PTBR + i+1] = "0000";
                     i = i+2 ;
             endwhile;
+            
+            // releasing blocks for stack and heap
+            alias disk_map R5;
+            disk_map = DISK_MAP_TABLE + 10*cpid ;
+            
+            // releasing heap blocks 
+            i = 2;
+            while (i < 4)do
+                // if it is valid 
+                 if ([disk_map+i] != -1)then 
+                       multipush(R0,R1,R2,R3,R4,R5);
+                       R1 = 4;
+                       R2 = [disk_map + i];
+                       multipop(R0,R1,R2,R3,R4,R5);
+                 endif;
+                 i = i + 1;
+            endwhile;
+
+            // releasing stack blocks 
+            i = 8;
+            while (i < 10)do
+                // if it is valid 
+                 if ([disk_map+i] != -1)then 
+                       multipush(R0,R1,R2,R3,R4,R5);
+                       R1 = 4;
+                       R2 = [disk_map + i];
+                       multipop(R0,R1,R2,R3,R4,R5);
+                 endif;
+                 i = i + 1;
+            endwhile;
+
+            // reset all entries to -1
+            i = 0;
+            while (i < 10)do
+                 [disk_map+i] = -1;
+                 i = i + 1;
+            endwhile;
+
             return;
 
     endif;

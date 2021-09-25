@@ -65,6 +65,9 @@ loadi(51,64);
 loadi(59,3);
 loadi(60,4);
 
+// disk_map table 
+loadi(61, 2);
+
 
 //Setting memory free list
 // 82 page used as stack for module_7
@@ -135,6 +138,9 @@ PTLR = 10;
 [PROCESS_TABLE + 16 + 14 ] = PTBR;
 [PROCESS_TABLE + 16 + 15 ] = PTLR;
 
+// disk map entries 
+[DISK_MAP_TABLE+14]=7;
+[DISK_MAP_TABLE+15]=8;
 
 // perprocess entries for init 
 

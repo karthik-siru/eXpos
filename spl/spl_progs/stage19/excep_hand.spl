@@ -8,6 +8,7 @@ userSP = SP;
 SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11]*512 -1 ;
 
 backup;
+multipush(EIP);
 
 if(EC == 1)then
     print "Illegal Instruction";
@@ -68,7 +69,7 @@ if (EC == 0 )then
 			R2=[SYSTEM_STATUS_TABLE+1];
 			R3=[DISK_MAP_TABLE + 10*[SYSTEM_STATUS_TABLE+1]+EPN];
 			call MOD_2;
-			
+            breakpoint;
 			[PAGE_TABLE_BASE+[SYSTEM_STATUS_TABLE+1]*20 + 2*EPN]=R0;
 			[PAGE_TABLE_BASE+[SYSTEM_STATUS_TABLE+1]*20 + 2*EPN + 1]="1100";
 		multipop(R1);
@@ -84,6 +85,9 @@ if (EC == 0 )then
 	endif;
 
 endif;
+multipop(EIP);
+
+breakpoint;
 
 restore;
 // reset mode to 0

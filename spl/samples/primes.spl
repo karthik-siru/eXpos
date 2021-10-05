@@ -5,7 +5,7 @@ print TIMER; //to check if the values in constant file is accessible
 readi n;
 i = 2;
 while( i <= n) do
-	j = 2;
+	j = 0;
 	R3 = 0;
 	while(j < i) do
 		if(i % j == 0) then

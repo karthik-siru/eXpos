@@ -1,0 +1,50 @@
+alias cpid R5;
+cpid  =  [SYSTEM_STATUS_TABLE + 1];
+
+multipush(BP);
+
+[PROCESS_TABLE + cpid*16 + 12] = SP%512;
+[PROCESS_TABLE + cpid*16 + 14] = PTBR;
+[PROCESS_TABLE + cpid*16 + 15] = PTLR;
+
+alias npid R6;
+npid = 0;
+
+alias temp R7;
+
+temp =  cpid + 1 ;
+
+while (temp != cpid )do
+    if (([PROCESS_TABLE + temp*16 + 4] == READY )|| ([PROCESS_TABLE + temp*16 + 4] == CREATED) )then
+        npid = temp;
+        break;
+    endif;
+    temp = (temp + 1)%16;
+endwhile;
+
+alias new_process_table  R11;
+
+new_process_table = PROCESS_TABLE + npid*16 ;
+
+SP = [new_process_table + 11]*512 + [new_process_table + 12];
+PTBR = [new_process_table + 14];
+PTLR = [new_process_table + 15];
+
+[SYSTEM_STATUS_TABLE + 1] = npid;
+
+if ([new_process_table + 4] == CREATED )then
+    
+    // kick start the process directly.
+    SP = [new_process_table + 13];
+    BP = [[new_process_table + 11] * 512] ;
+    [new_process_table + 4] = RUNNING;
+    [new_process_table + 9] = 0;
+    ireturn;
+    
+endif;
+
+[new_process_table + 4] = RUNNING;
+
+multipop(BP);
+
+return;

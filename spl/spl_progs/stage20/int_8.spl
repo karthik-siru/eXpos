@@ -1,0 +1,118 @@
+// set mode and switch to kernel stack
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9 ] = 8 ;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13] = SP;
+
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1 ]*16 + 11 ]*512 -1;
+
+// getPcb entry
+
+   R1 = 1;
+   call  MOD_1;
+   R4 = R0;
+
+   alias childPid R4;
+   R5 = [SYSTEM_STATUS_TABLE + 1];
+   alias parentPid R5;
+
+// free process not available 
+
+   if (childPid == -1)then
+       [PROCESS_TABLE + parentPid*16 + 9 ] = 0 ;
+       R0 = -1 ;
+       SP = [PROCESS_TABLE + parentPid*16 + 13];
+       ireturn;
+   endif;
+
+
+   alias i R6;
+   multipush(R4 , R5);
+// if heap pages not allocated 
+   if([[PROCESS_TABLE + parentPid*16 +14] + 4 ] == -1 )then 
+      i = 0;
+      while (i<2)do 
+         R1 =1;
+         call MOD_2;
+         [[PROCESS_TABLE + parentPid*16] + 2*i + 4] = R0;
+         [[PROCESS_TABLE + parentPid*16] + 2*i + 5] = "1110";
+         i = i +1 ;
+      endwhile;
+   endif; 
+   multipop(R4 , R5 );
+   multipush(R4 , R5);
+// allocate stack pages 
+   i = 0 ;
+   while (i<2) do 
+       R1 = 1;
+       call MOD_2;
+      [[PROCESS_TABLE + childPid*16 + 14 ] + 2*i + 16] =R0;
+      [[PROCESS_TABLE + childPid*16 + 14 ] + 2*i + 17] ="0110";
+   endwhile;
+// userArea page
+
+   R1 = 1 ;
+   call MOD_2;
+   [PROCESS_TABLE + childPid*16 + 11]= R0;
+   multipop(R4 , R5);
+
+// copy contents of parent process 
+
+   [PROCESS_TABLE + childPid*16 + 3] = [PROCESS_TABLE + parentPid*16 + 3];
+   [PROCESS_TABLE + childPid*16 + 6] = [PROCESS_TABLE + parentPid*16 + 6];
+   [PROCESS_TABLE + childPid*16 + 10] = [PROCESS_TABLE + parentPid*16 + 10];
+   [PROCESS_TABLE + childPid*16 + 7] = [PROCESS_TABLE + parentPid*16 + 7];
+   [PROCESS_TABLE + childPid*16 + 13] = [PROCESS_TABLE + parentPid*16 + 13];
+   
+   [PROCESS_TABLE + childPid*16 + 9] = 0;
+   [PROCESS_TABLE + childPid*16 + 12] = 0;
+   [PROCESS_TABLE + childPid*16 ] = 0;
+   [PROCESS_TABLE + childPid*16 + 2] = parentPid;
+   [PROCESS_TABLE + childPid*16 + 4] = CREATED;
+
+// copying perprocess pageTable  
+
+   i=496;
+   while(i<512) do // copying per-process page table
+      [[PROCESS_TABLE +childPid*16+11]+i]=[[PROCESS_TABLE +parentPid*16+11]+i];
+      i=i+1;
+   endwhile;
+
+// copying perprocess diskTable 
+   i=0;
+   while(i<10) do // copying per-process disk table
+      [DISK_MAP_TABLE+childPid*10+i]=[DISK_MAP_TABLE+parentPid*10+i];
+      i=i+1;
+   endwhile;
+
+// copying pagetable except stack 
+  
+   i=0;
+   while(i<8) do //copying page table entries except for stack
+      [[PROCESS_TABLE+childPid*16+14]+2*i]=[[PROCESS_TABLE+parentPid*16+14]+2*i];
+      [MEMORY_FREE_LIST+[[PROCESS_TABLE+parentPid*16+14]+2*i]]=[MEMORY_FREE_LIST+[[PROCESS_TABLE+parentPid*16+14]+2*i]]+1; 
+      [[PROCESS_TABLE+childPid*16+14]+2*i+1]=[[PROCESS_TABLE+parentPid*16+14]+2*i+1];
+      i=i+1;
+   endwhile;
+
+// copying userStack of parent process
+   i=0;
+   while(i<512) do
+      [[[PROCESS_TABLE+childPid*16+14]+16]*512+i]=[[[PROCESS_TABLE+parentPid*16+14]+16]*512+i];
+      [[[PROCESS_TABLE+childPid*16+14]+18]*512+i]=[[[PROCESS_TABLE+parentPid*16+14]+18]*512+i];
+      i=i+1;
+   endwhile;
+
+   [[PROCESS_TABLE + childPid*16 + 11]*512] = BP;
+
+// return values to parent & child 
+   alias parentSp R6;
+   parentSp = [PROCESS_TABLE + parentPid*16 + 13];
+   [([[PROCESS_TABLE+parentPid*16+14]+2*((parentSp-1)/512)]*512)+((parentSp-1)%512)]= childPid; 
+
+   alias childSp R7;
+   childSp=[PROCESS_TABLE+childPid*16+13];
+   [([[PROCESS_TABLE+childPid*16+14]+2*((childSp-1)/512)]*512)+((childSp-1)%512)]=0; 
+
+// reset mode and return to user mode 
+   [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=0;
+   SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13];
+   ireturn;

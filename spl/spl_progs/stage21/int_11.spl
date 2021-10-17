@@ -1,0 +1,114 @@
+
+    alias userSp R8;
+    userSp = SP;
+
+// save SP and switch to kernel mode 
+  [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13] = SP;
+  SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 11]*512 -1 ;
+
+
+// extract sysCall No. from userStack 
+   
+   alias funcNum R9;
+   alias physicalPageNum R10 ;
+   alias offset R11 ;
+
+   physicalPageNum = [PTBR+2*((userSp-5)/512)];
+   offset = (userSp-5)%512 ;
+
+   funcNum = [physicalPageNum*512 + offset ];
+
+// getPID 
+
+   if (funcNum == 11) then 
+      
+      physicalPageNum = [PTBR+2*((userSp-2)/512)];
+      offset = (userSp-2)%512 ;
+      [physicalPageNum*512 + offset ] = [SYSTEM_STATUS_TABLE+1];
+       
+   endif;
+
+// getPPID
+
+   if (funcNum == 12) then 
+      
+      physicalPageNum = [PTBR+2*((userSp-1)/512)];
+      offset = (userSp-1)%512 ;
+      [physicalPageNum*512 + offset ] = [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+2];
+       
+   endif;
+
+// Wait 
+   
+   if (funcNum == 13)then 
+        // set the mode :
+            [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=13;
+
+        // get the PID 
+            alias PID R12;
+            PID=[[PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512];
+
+        // reference to itself ;(    
+            if(PID==[SYSTEM_STATUS_TABLE+1]) then
+                R0=-1;
+                [[PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512]=R0;
+                SP=userSp;
+                ireturn;
+            endif;
+
+        // process already terminated 
+            if([PROCESS_TABLE+PID*16+4]==TERMINATED) then
+                R0=-1;
+                [[PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512]=R0;
+                SP=userSp;
+                ireturn;
+            endif;
+
+        // PID out of range 
+            if(PID>15) then
+                R0=-1;
+                [[PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512]=R0;
+                SP=userSp;
+                ireturn;
+            endif;
+
+        // set the STATE to tuple 
+            [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+4]=WAIT_PROCESS;
+            [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+5]=PID;
+
+        // call scheduler 
+            multipush(R8);
+            call MOD_5;
+            multipop(R8);
+        // reset the mode 
+           [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=0;
+       
+   endif;
+
+
+// Signal 
+
+   if (funcNum == 14)then 
+      
+        // set the mode 
+            [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=14;
+        //wake all the processes ..
+        //waiting for this process
+            alias i R12;
+            i=0;
+            while(i<16) do
+                if(([PROCESS_TABLE+i*16+4]==WAIT_PROCESS)&&([PROCESS_TABLE+i*16+5]==[SYSTEM_STATUS_TABLE+1])) then
+                    [PROCESS_TABLE+i*16+4]=READY;
+                endif;
+                i=i+1;
+            endwhile;
+        // reset the mode 
+        [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=0;
+
+   endif;
+
+// set the Sp and return 
+
+  SP =  userSp;
+  ireturn;
+  

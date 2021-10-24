@@ -1,0 +1,153 @@
+alias userSp R2 ;
+userSp =  SP;
+
+// save SP and switch to kernel mode 
+   [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13] = SP;
+   SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 11]*512 -1 ;
+
+// extract sysCall No. from userStack 
+   
+   alias sysCall R9;
+   alias physicalPageNum R10 ;
+   alias offset R11 ;
+
+   physicalPageNum = [PTBR+2*((userSp-5)/512)];
+   offset = (userSp-5)%512 ;
+
+   sysCall = [physicalPageNum*512 + offset ];
+
+// SemLock 
+    if(sysCall == 19)then 
+
+            alias semaphoreDesriptor  R3;
+            alias userAreaPageNo  R4;
+            alias physicalAddrRetVal R5;
+            alias semaphoreIndex R6;
+
+            [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 19;
+            physicalAddrRetVal = ([PTBR + 2*((userSp - 1)/512)]*512) + ((userSp - 1)%512);
+
+            physicalPageNum = [PTBR + 2 * ((userSp - 4)/ 512)];
+            offset = (userSp - 4) % 512;
+
+            semaphoreDesriptor = [physicalPageNum*512 + offset];
+            
+            userAreaPageNo = [PROCESS_TABLE+16*[SYSTEM_STATUS_TABLE+1]+11];
+            
+            //invalid semaphore number : 
+                
+                if (semaphoreDesriptor < 0  ||  semaphoreDesriptor > 7 || [userAreaPageNo*512 + (semaphoreDesriptor*2 + 496) ] != 1)then 
+                        //return value 
+                        [physicalAddrRetVal] = -1;
+                        //reset the mode and return to usermode 
+                        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9]=0;
+                        SP = userSp;
+                        ireturn;
+                endif;
+
+            semaphoreIndex = [userAreaPageNo*512 + (semaphoreDesriptor * 2 + 496) +1];
+
+        // check if the semaphore is already locked  
+        while([SEMAPHORE_TABLE + 4*semaphoreIndex + 0] != -1 
+                && [SEMAPHORE_TABLE + 4*semaphoreIndex + 0]!=[SYSTEM_STATUS_TABLE+1]) do
+                
+                // change the state to WAIT_SEMAPHORE   
+                [PROCESS_TABLE+16*[SYSTEM_STATUS_TABLE+1]+4]=WAIT_SEMAPHORE;
+                [PROCESS_TABLE+16*[SYSTEM_STATUS_TABLE+1]+5]=semaphoreIndex; 
+                
+                // if yes call the scheduler 
+                multipush(R0, R1 , R2, R3, R4, R5,R6,R7,R8,R9);
+                call MOD_5;
+                multipop(R0, R1 , R2, R3, R4, R5,R6,R7,R8,R9);
+
+            endwhile;
+
+            // set the locking process PID 
+            [SEMAPHORE_TABLE + 4*semaphoreIndex + 0] = [SYSTEM_STATUS_TABLE+1];
+            
+            SP = [PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+
+            [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9] = 0;
+
+            [physicalAddrRetVal] = 0;
+
+            ireturn;
+
+        endif;
+
+
+//SemUnlock 
+if(sysCall == 20)then
+
+            alias semaphoreDesriptor  R3;
+            alias userAreaPageNo  R4;
+            alias physicalAddrRetVal R5;
+            alias semaphoreIndex R6;
+            alias i R7;
+
+            [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 19;
+            physicalAddrRetVal = ([PTBR + 2*((userSp - 1)/512)]*512) + ((userSp - 1)%512);
+
+            physicalPageNum = [PTBR + 2 * ((userSp - 4)/ 512)];
+            offset = (userSp - 4) % 512;
+
+            semaphoreDesriptor = [physicalPageNum*512 + offset];
+            
+            userAreaPageNo = [PROCESS_TABLE+16*[SYSTEM_STATUS_TABLE+1]+11];
+            
+            //invalid semaphore number : 
+                
+                if (semaphoreDesriptor < 0  ||  semaphoreDesriptor > 7 || [userAreaPageNo*512 + (semaphoreDesriptor*2 + 496) ] != 1)then 
+                        //return value 
+                        [physicalAddrRetVal] = -1;
+                        //reset the mode and return to usermode 
+                        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9]=0;
+                        SP = userSp;
+                        ireturn;
+                endif;
+
+            semaphoreIndex = [userAreaPageNo*512 + (semaphoreDesriptor * 2 + 496) +1];
+
+
+            if([SEMAPHORE_TABLE + 4*semaphoreIndex + 0]!=-1) then
+
+                if([SEMAPHORE_TABLE + 4*semaphoreIndex + 0]!=[SYSTEM_STATUS_TABLE+1]) then
+                    //Setting return value as -2 (Failure)return vaal -2
+                    [physicalAddrRetVal] = -2;
+
+                    //reset mode flag 
+                    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+                                        SP = userSp;
+
+                    ireturn;
+                endif;
+                
+                // unlock the semaphore 
+                [SEMAPHORE_TABLE + 4*semaphoreIndex + 0]=-1;
+                
+                // wake up all the process waiting for this semaphore 
+                i=0;
+                while(i<=15) do
+                    if([PROCESS_TABLE+16*i+4]==WAIT_SEMAPHORE &&
+                        [PROCESS_TABLE+16*i+5]==semaphoreIndex) then
+
+                        [PROCESS_TABLE+16*i+4]=READY;
+                    
+                    endif;
+                    i=i+1;
+                endwhile;
+
+
+	        endif;
+
+        SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13];
+
+        //reset the mode and return 
+
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 +9] = 0;
+
+        [physicalAddrRetVal] = 0 ;
+        
+        ireturn;
+
+endif;

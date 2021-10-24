@@ -1,0 +1,145 @@
+   alias userSp R2 ;
+   userSp = SP;
+
+// save SP and switch to kernel mode 
+   [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13] = SP;
+   SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 11]*512 -1 ;
+
+// extract sysCall No. from userStack 
+   
+   alias sysCall R9;
+   alias physicalPageNum R10 ;
+   alias offset R11 ;
+
+   physicalPageNum = [PTBR+2*((userSp-5)/512)];
+   offset = (userSp-5)%512 ;
+
+   sysCall = [physicalPageNum*512 + offset ];
+
+
+// SemGet 
+   if (sysCall == 17 )then 
+       [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9]= 17;
+       alias userAreaPageNo R5;
+       alias free_entry R6;
+       alias i R7;
+       alias physicalAddrRetVal R8;
+       alias semaphoreDesriptor R3;
+       alias semaphoreIndex R4;
+
+
+       userAreaPageNo = [PROCESS_TABLE+16*[SYSTEM_STATUS_TABLE+1]+11];
+       physicalAddrRetVal = ([PTBR + 2*((userSp - 1)/512)]*512) + ((userSp - 1)%512);
+       free_entry =  -1;
+       i = 496;
+       
+       // get a free entry in perprocess entry
+            while(i<=511) do
+                if([userAreaPageNo*512+i]==-1) then
+                    free_entry=i;
+                    break;
+                endif;
+                i=i+2;
+            endwhile;
+       
+       // no free entry found 
+            if(free_entry==-1) then            
+                [physicalAddrRetVal] = -1;
+
+                [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+                
+                SP = userSp;
+
+                ireturn;
+            endif;
+
+      semaphoreDesriptor = (free_entry-496)/2 ;
+      
+      // resource identify feild to 1 (SEMAPHORE)
+      [userAreaPageNo*512 +  free_entry ] = 1 ; 
+
+      // get semaphore index 
+      multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9, R10 , R11 );
+		
+         R1=6; 
+         R2=[SYSTEM_STATUS_TABLE+1]; 
+         call MOD_0;	
+         semaphoreIndex=R0;
+
+	   multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9 , R10 , R11 );
+
+      // if no index found 
+        if (semaphoreIndex == -1 )then
+           [physicalAddrRetVal] = -2 ;
+
+           //reset the mode 
+           [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9 ] = 0;
+
+            SP = userSp;
+            ireturn ;
+           
+        endif;
+        [userAreaPageNo*512 + free_entry + 1] = semaphoreIndex;
+
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9 ] = 0;
+
+        [physicalAddrRetVal]=semaphoreDesriptor;
+        ireturn;
+
+   endif;
+
+// SemRelease 
+   if ( sysCall == 18) then 
+     
+      [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9]= 18;
+
+       alias userAreaPageNo R5;
+       alias i R7;
+       alias physicalAddrRetVal R8;
+       alias semaphoreDesriptor R3;
+       alias semaphoreIndex R4;
+
+
+       userAreaPageNo = [PROCESS_TABLE+16*[SYSTEM_STATUS_TABLE+1]+11];
+       physicalAddrRetVal = ([PTBR + 2*((userSp - 1)/512)]*512) + ((userSp - 1)%512);
+       
+       
+       physicalPageNum = [PTBR + 2 * ((userSp - 4)/ 512)];
+	    offset = (userSp - 4) % 512;
+
+       semaphoreDesriptor = [physicalPageNum*512 +  offset];
+
+       //invalid semaphore number : 
+       
+       if (semaphoreDesriptor < 0  ||  semaphoreDesriptor > 7 || [userAreaPageNo*512 + (semaphoreDesriptor*2 + 496) ] != 1)then 
+            //return value 
+              [physicalAddrRetVal] = -1;
+            //reset the mode and return to usermode 
+              [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9]=0;
+              SP = userSp;
+              ireturn;
+       endif;
+
+      multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+         
+         R1=7; 
+         R2=[SYSTEM_STATUS_TABLE+1]; 
+         R3=[userAreaPageNo * 512 + (semaphoreDesriptor * 2 + 496)+1];
+         call MOD_0;
+         if(R0==-1) then
+            print "SemtabIndErr";
+         endif;
+   	multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+
+    	[userAreaPageNo * 512 + (semaphoreDesriptor * 2 + 496)] = -1;
+      
+      //reset the mode 
+      [PROCESS_TABLE +[SYSTEM_STATUS_TABLE + 1]*16 + 9] = 0;
+
+      SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+
+      [physicalAddrRetVal] = 0;
+
+      ireturn;
+
+   endif;

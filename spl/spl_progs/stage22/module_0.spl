@@ -25,9 +25,8 @@ alias cpid R2;
 
 // Acquire Semaphore 
 	if(funcNum==6) then
-		alias pid R10;
-		pid=cpid;
 		alias i R11;
+	
 		i=0;
 		alias index R12;
 		index=-1;
@@ -43,7 +42,7 @@ alias cpid R2;
 				R0=-1;
 				return;
 			endif;
-		[SEMAPHORE_TABLE+4*index]=pid;
+		[SEMAPHORE_TABLE+4*index]=cpid;
 		[SEMAPHORE_TABLE+4*index+1]=1;
 		R0=index;
 		return;
@@ -52,13 +51,11 @@ alias cpid R2;
 
 // Release Semaphore 
 	if(funcNum==7) then 
-		alias pid R10;
-		pid = cpid;
 		alias semTableID R11;
 		semTableID = R3;
 		alias i R12;
 		i=0;
-		if([SEMAPHORE_TABLE+4*semTableID]==pid) then
+		if([SEMAPHORE_TABLE+4*semTableID]==cpid) then
 			[SEMAPHORE_TABLE+4*semTableID]=-1;
 			// set the state of the process waititng for
 			// this semaphore to READY .

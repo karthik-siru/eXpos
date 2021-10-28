@@ -33,9 +33,9 @@
 		while (i<MAX_FILE_NUM) do 
 			
 			if ([INODE_TABLE + 16*i + 1] == fileName)then 
-			found = 1;
-			inodeIndex = i;
-			break;  
+				found = 1;
+				inodeIndex = i;
+				break;  
 			endif;
 			i = i +1 ;
 
@@ -91,13 +91,13 @@
 		[SYSTEM_STATUS_TABLE+2]=[SYSTEM_STATUS_TABLE+2]-1;
 
 //Set SP to top of kernel stack
-		SP = userareapage* 512 - 1;
+		SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 11]* 512 - 1;
 
 // change the state  
-		[PROCESS_TABLE + (cpid * 16) + 4]=RUNNING;
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE +1] * 16) + 4]=RUNNING;
 
 		//Update Inode Index Field
-		[PROCESS_TABLE + (cpid* 16) + 7]=inodeIndex;
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE +1]* 16) + 7]=inodeIndex;
 
 // ------------------------------------
 
@@ -145,7 +145,6 @@
 
 // ------------------------------------
 
-breakpoint;
 // load code pages : (load only if exits)
 		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9); 
 		alias codeBlock R9;
@@ -154,7 +153,6 @@ breakpoint;
 			R1=5; 
 			R2=codeBlock;
             call MOD_2;
-			breakpoint;
 			[PTBR+8]=R0; 
 			[PTBR+9]="0100";
 		multipop(R0,R1,R2,R3,R4,R5,R6,R8,R9);

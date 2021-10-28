@@ -13,9 +13,9 @@ alias i R3;
             while([SYSTEM_STATUS_TABLE+2]==0) do 
                 [PROCESS_TABLE+16*[SYSTEM_STATUS_TABLE+1]+4]=WAIT_MEM;
 
-                multipush(R0, R1, R2 , R3 );
+                multipush(R0, R1, R2 , R3  );
                 call MOD_5;
-                multipop(R0, R1, R2 , R3 );		
+                multipop(R0, R1, R2 , R3  );		
             endwhile;       
         // update WAIT_MEM_COUNT & MEM_FREE_COUNT 
             [SYSTEM_STATUS_TABLE+3]=[SYSTEM_STATUS_TABLE+3]-1; 
@@ -32,6 +32,7 @@ alias i R3;
             endwhile;
         // set the return value 
             R0=i;
+            breakpoint;
             return;
     endif;
 
@@ -53,7 +54,8 @@ alias i R3;
                         endif;
                         i=i+1;
                     endwhile;
-            endif;            
+            endif;  
+             breakpoint;          
             return;
     endif;
 
@@ -62,52 +64,45 @@ alias i R3;
 
     if(funcNum==4) then 
             [DISK_FREE_LIST+R2]=[DISK_FREE_LIST+R2]-1;
+             breakpoint;
             return;
     endif;
 
 // ---------------------------
 // Get Code-Page 
     if (funcNum == 5)then
-        alias codeBlock R2;
-        alias temp R4;
-        temp = R2;
-        alias pid R5;
-        pid = 0;
-        breakpoint;
-        while (pid < 16)do
-           i = 2 ;
-           while (i<10)do
-                // if codeBlock exits 
-                if([DISK_MAP_TABLE + 10*pid + i] == codeBlock) then 
-                    // if it is valid ,then return the page
-                    if([[PROCESS_TABLE + 16*pid + 14] + 2*i] != -1)then 
-                        R0 = [[PROCESS_TABLE + 16*pid + 14] + 2*i];
-                        [MEMORY_FREE_LIST+ R0]=[MEMORY_FREE_LIST+ R0]+1;
-                        return;
-                    endif;
+        alias code R2;
+    alias i R3;
+    alias j R4;
+    R5 = R2;
+    i = 0;
+    while(i < 16) do
+        j = 4;
+        while(j < 8) do 
+            if([DISK_MAP_TABLE + i * 10 + j] == code) then
+                if([[PROCESS_TABLE + i*16 + 14] + 2*j] != -1) then
+                    R0 = [[PROCESS_TABLE + i*16 + 14] + 2*j];
+                    [MEMORY_FREE_LIST + R0] = [MEMORY_FREE_LIST + R0] + 1;
+                    return;
                 endif;
-                i = i +1;
-           endwhile;
-           pid =  pid +1;
+            endif;
+            j = j + 1;
         endwhile;
-        breakpoint;
-        multipush(R1,R2,R4);
-        // get free page 
-            R1 = 1;
-            call MOD_2;
-            breakpoint;
-        multipop(R1,R2,R4);
-
-        //disk load 
-        multipush(R0,R1,R2,R4);
-            R1 = 2;
-            R2 = [SYSTEM_STATUS_TABLE + 1];
-            R3 = R0;
-            R4 = temp;
-            call MOD_4;
-            breakpoint;
-        multipop(R0,R1,R2,R4);
-        return;
+        i = i +1;
+    endwhile;
+    multipush(R1,R2,R3,R4,R6);
+    R1 = 1;
+    call MOD_2;
+    multipop(R1,R2,R3,R4,R6);
+    multipush(R0,R1,R2,R3,R4,R6);
+    alias page R0;
+    R1 = 2;
+    R2 = [SYSTEM_STATUS_TABLE + 1];
+    R3 = page;
+    R4 = R5;
+    call MOD_4;
+    multipop(R0,R1,R2,R3,R4,R6);
+    return;
     endif;
 
 // ---------------------------

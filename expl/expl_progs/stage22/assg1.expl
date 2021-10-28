@@ -17,12 +17,14 @@ decl
 enddecl
 
 begin
+breakpoint;
   x = exposcall("Heapset");
   semid = exposcall("Semget");
+  breakpoint;
   head = exposcall("Alloc", 2);
   head.isempty = 1;
   pidone = exposcall("Fork");
-
+  
   if (pidone == 0) then
     iter = 1;
     while(iter <= 100) do
@@ -78,6 +80,7 @@ begin
   endif;
 
   temp = exposcall("Semrelease", semid);
+  breakpoint;
   return 0;
 end
 }

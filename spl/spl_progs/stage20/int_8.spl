@@ -11,7 +11,7 @@
    R1=1; 
    call MOD_1;
    R4=R0;
-
+   
    alias childPid R4;
    alias parentPid R5;
    R5=[SYSTEM_STATUS_TABLE+1];
@@ -33,10 +33,12 @@
       i=0;
       while(i<2) do 
          // get free page 
+            multipush(R0,R1,R2,R3,R4,R5,R10);
             R1=1; 
             call MOD_2; 
             [[PROCESS_TABLE+parentPid*16+14]+2*i+4]=R0; 
             [[PROCESS_TABLE+parentPid*16+14]+2*i+5]="1110";
+            multipop(R0,R1,R2,R3,R4,R5,R10);
             i=i+1;
       endwhile;
    endif;
@@ -50,13 +52,18 @@
       call MOD_2; 
       [[PROCESS_TABLE+childPid*16+14]+16]=R0;
       [[PROCESS_TABLE+childPid*16+14]+17]="0110";
+   multipop(R4,R5);
+
+    multipush(R4,R5);
    // get free page
       R1=1;  
       call MOD_2;
       [[PROCESS_TABLE+childPid*16+14]+18]=R0; 
       [[PROCESS_TABLE+childPid*16+14]+19]="0110";
+    multipop(R4,R5);
 
 // allocate userarea Page 
+    multipush(R4,R5);
    // get free page 
       R1=1;  
       call MOD_2; 
@@ -85,7 +92,7 @@
 // copy per process page table 
       i=496;
       while(i<512) do 
-         [[PROCESS_TABLE +childPid*16+11]+i]=[[PROCESS_TABLE +parentPid*16+11]+i];
+         [[childPTBR+11]*512 +i]=[[parentPTBR+11]*512 +i];
          i=i+1;
       endwhile;
 
@@ -99,34 +106,35 @@
 // copy page table entries except stack 
    i=0;
    while(i<8) do 
-      [[PROCESS_TABLE+childPid*16+14]+2*i]=[[PROCESS_TABLE+parentPid*16+14]+2*i];
-      [MEMORY_FREE_LIST+[[PROCESS_TABLE+parentPid*16+14]+2*i]]=[MEMORY_FREE_LIST+[[PROCESS_TABLE+parentPid*16+14]+2*i]]+1; //increasing share count in mem free list
-      [[PROCESS_TABLE+childPid*16+14]+2*i+1]=[[PROCESS_TABLE+parentPid*16+14]+2*i+1];
+      [[childPTBR+14]+2*i]=[[parentPTBR+14]+2*i];
+      [MEMORY_FREE_LIST+[[parentPTBR+14]+2*i]]=[MEMORY_FREE_LIST+[[parentPTBR+14]+2*i]]+1;
+      [[childPTBR+14]+2*i+1]=[[parentPTBR+14]+2*i+1];
       i=i+1;
    endwhile;
 
 // copy parent userStack 
    i=0;
    while(i<512) do 
-      [[[PROCESS_TABLE+childPid*16+14]+16]*512+i]=[[[PROCESS_TABLE+parentPid*16+14]+16]*512+i];
-      [[[PROCESS_TABLE+childPid*16+14]+18]*512+i]=[[[PROCESS_TABLE+parentPid*16+14]+18]*512+i];
+      [[[childPTBR+14]+16]*512+i]=[[[parentPTBR+14]+16]*512+i];
+      [[[childPTBR+14]+18]*512+i]=[[[parentPTBR+14]+18]*512+i];
       i=i+1;
    endwhile;
 
 
-   [[PROCESS_TABLE+childPid*16+11]*512]=BP;
+   [[childPTBR+11]*512]=BP;
 
 // return values for parent and child 
    //parent 
-      alias parentSP R6;
-      parentSP=[PROCESS_TABLE+parentPid*16+13];
-      [([[PROCESS_TABLE+parentPid*16+14]+2*((parentSP-1)/512)]*512)+((parentSP-1)%512)]=childPid;
+      alias parentSP R9;
+      parentSP=[parentPTBR+13];
+      [([[parentPTBR+14]+2*((parentSP-1)/512)]*512)+((parentSP-1)%512)]=childPid;
    //child 
-      alias childSP R7;
-      childSP=[PROCESS_TABLE+childPid*16+13];
-      [([[PROCESS_TABLE+childPid*16+14]+2*((childSP-1)/512)]*512)+((childSP-1)%512)]=0; 
+      alias childSP R10;
+      childSP=[childPTBR+13];
+      [([[childPTBR+14]+2*((childSP-1)/512)]*512)+((childSP-1)%512)]=0; 
 
 // reset the mode and return to usermode 
    [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=0;
    SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13];
+   breakpoint;
    ireturn;

@@ -1,5 +1,5 @@
 
-    alias userSp R8;
+    alias userSp R2;
     userSp = SP;
 
 // save SP and switch to kernel mode 
@@ -22,8 +22,8 @@
 
    if (funcNum == 11) then 
       
-      physicalPageNum = [PTBR+2*((userSp-2)/512)];
-      offset = (userSp-2)%512 ;
+      physicalPageNum = [PTBR+2*((userSp-1)/512)];
+      offset = (userSp-1)%512 ;
       [physicalPageNum*512 + offset ] = [SYSTEM_STATUS_TABLE+1];
        
    endif;
@@ -77,11 +77,14 @@
             [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+5]=PID;
 
         // call scheduler 
-            multipush(R8);
+            multipush(R2);
             call MOD_5;
-            multipop(R8);
+            multipop(R2);
         // reset the mode 
            [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=0;
+
+            SP =  userSp;
+            ireturn;
        
    endif;
 
@@ -109,6 +112,7 @@
 
 // set the Sp and return 
 
+  [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=0;
   SP =  userSp;
   ireturn;
   

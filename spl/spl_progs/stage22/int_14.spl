@@ -70,7 +70,7 @@ userSp =  SP;
             [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9] = 0;
 
             [physicalAddrRetVal] = 0;
-
+            
             ireturn;
 
         endif;

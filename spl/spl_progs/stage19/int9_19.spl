@@ -1,0 +1,136 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+
+alias userSP R0;
+alias file R1;
+alias ret R2;
+alias inode R3;
+alias i R8;
+alias userpage R5;
+
+userSP = SP;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16) + 11] * 512 - 1;
+
+file = [([PTBR + 2 * ((userSP - 4)/ 512)] * 512) + ((userSP - 4) % 512)];
+
+i = 0;
+while(i < MAX_FILE_NUM) do
+    if([INODE_TABLE + i*16 + 1] == file ) then
+        inode = i;
+        break;
+    else
+        i = i + 1;
+    endif;
+endwhile;
+if(i == MAX_FILE_NUM) then
+    ret = [([PTBR + 2 * ((userSP - 1)/ 512)] * 512) + ((userSP - 1) % 512)];
+    ret = -1;
+    SP = userSP;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    ireturn;
+endif;
+
+multipush(R0,R1,R2,R3,R4,R5,R8);
+R1 = 3;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+call MOD_1;
+multipop(R0,R1,R2,R3,R4,R5,R8);
+
+userpage = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16) + 11];
+[MEMORY_FREE_LIST + userpage] = [MEMORY_FREE_LIST + userpage] + 1;
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+i = 496;
+while(i < 512) do
+    [userpage*512 + i] = -1;
+    i = i + 1;
+endwhile;
+
+SP = userpage*512 - 1;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 4] = RUNNING;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 7] = inode;
+
+alias pagetable R6;
+
+pagetable = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 14];
+
+[pagetable + 0] = 63;
+[pagetable + 1] = "0100";
+[pagetable + 2]=64;
+[pagetable + 3]="0100";
+
+multipush(R0,R1,R2,R3,R4,R5,R6,R8);
+//R1 = 1;
+//call MOD_2;
+[pagetable + 4] = -1;
+[pagetable + 5] = "0000";
+//R1 = 1;
+//call MOD_2;
+[pagetable + 6] = -1;
+[pagetable + 7] = "0000";
+R1 = 1;
+call MOD_2;
+[pagetable + 16] = R0;
+[pagetable + 17] = "0110";
+R1 = 1;
+call MOD_2;
+[pagetable + 18] = R0;
+[pagetable + 19] = "0110";
+multipop(R0,R1,R2,R3,R4,R5,R6,R8);
+
+alias code R7;
+//multipush(R0,R1,R2,R3,R4,R5,R6,R8);
+//i = 0;
+//while(i < 4) do
+//    alias disknum R9;
+//    disknum = [code+i];
+//    if (disknum != -1) then
+//        R1 = 1;
+//        call MOD_2;
+//        [pagetable + 8 + 2*i] = R0;
+//        [pagetable + 9 + 2*i] = "0100";
+//        multipush(R6,R7,R8,R1,R9);
+//        R1 = 2;
+//        R2 = [SYSTEM_STATUS_TABLE + 1];
+//        R3 = [pagetable + 8 + 2*i];
+//        R4 = disknum;
+//        call MOD_4;
+//        multipop(R6,R7,R8,R1,R9);
+//        //loadi(R0,[code+i]);
+//    endif;
+//    i = i+1;
+//endwhile;
+//multipop(R0,R1,R2,R3,R4,R5,R6,R8);
+
+multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8);
+code = [INODE_TABLE + inode*16 + 8];
+R1 = 5;
+R2 = code;
+call MOD_2;
+[pagetable + 8] = R0;
+[pagetable + 9] = "0100";
+multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8);
+
+i = 1;
+while(i < 4) do
+    [pagetable + i*2 + 8] = -1;
+    [pagetable + i*2 + 9] = "0000";
+    i = i + 1;
+endwhile;
+
+i = 0;
+while(i < 10) do
+    if((i>3) && (i < 8)) then
+        [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + i] = [INODE_TABLE + inode * 16 + 4 + i];
+    else
+        [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + i] = -1;
+    endif;
+    i = i+1;
+endwhile;
+
+
+[[pagetable + 16] * 512] = [[pagetable + 8] * 512 + 1];
+SP = 8*512;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+breakpoint;
+ireturn;

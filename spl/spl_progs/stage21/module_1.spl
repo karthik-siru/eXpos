@@ -67,7 +67,7 @@ alias i R4;
             R2 = cpid;
             call MOD_1;
             multipop(R0,R1,R2,R3,R4);
-            return;
+
 
       // free userAreaPage 
             multipush(R0,R1,R2,R3,R4);
@@ -75,7 +75,7 @@ alias i R4;
             R2 = cpid;
             call MOD_1;
             multipop(R0,R1,R2,R3,R4);
-            return;
+
 
       // set the status as TERMINATED 
             [PROCESS_TABLE + cpid*16 + 4] = TERMINATED;

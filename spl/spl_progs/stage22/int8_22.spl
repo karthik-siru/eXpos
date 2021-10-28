@@ -1,0 +1,117 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 8;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16) + 11] * 512 - 1;
+
+R1 = 1;
+call MOD_1;
+alias child R6;
+child = R0;
+
+if(child == -1) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    R0 = -1;
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 1];
+    ireturn;
+endif;
+
+alias pid R7;
+alias i R8;
+pid = [SYSTEM_STATUS_TABLE + 1];
+
+multipush(R6,R7);
+if([[PROCESS_TABLE + pid*16 + 14] + 4] == -1) then
+    i = 0;
+    while(i<2) do 
+        R1 = 2;
+        call MOD_2;
+        [[PROCESS_TABLE+[SYSTEM_STATUS_TABLE + 1]*16+14]+2*i+4]=R0; 
+        [[PROCESS_TABLE+[SYSTEM_STATUS_TABLE + 1]*16+14]+2*i+5]="1110";
+    endwhile;
+endif;
+multipop(R6,R7);
+
+multipush(R6,R7);
+R1 = 1;
+call MOD_2;
+[[PROCESS_TABLE + child*16 + 14] + 16] = R0;
+[[PROCESS_TABLE + child*16 + 14] + 17] = "0110";
+R1 = 1;
+call MOD_2;
+[[PROCESS_TABLE + child*16 + 14] + 18] = R0;
+[[PROCESS_TABLE + child*16 + 14] + 19] = "0110";
+R1 = 1;
+call MOD_2;
+[PROCESS_TABLE + child*16  + 11] = R0;
+multipop(R6,R7);
+
+alias ppt R9;
+alias cpt R10;
+ppt = PROCESS_TABLE + pid*16;
+cpt = PROCESS_TABLE + child*16;
+
+[cpt + 3] =  [ppt + 3]; //userid
+[cpt + 6] =  [ppt + 6]; //swap flag
+[cpt + 7] =  [ppt + 7]; //inode index
+[cpt + 10] = [ppt + 10]; //user swap
+[cpt + 13] = [ppt + 13]; //uptr
+
+[cpt + 2] = pid; //ppid
+[cpt + 9] = 0;  //mode
+[cpt + 0] = 0; //tick
+[cpt + 12] = 0; //kptr
+[cpt + 4] = CREATED;
+
+breakpoint;
+i = 496;
+while(i < 512) do
+    [[cpt + 11]*512 + i] = [[ppt + 11]*512 + i];
+    [[cpt + 11]*512 + i + 1] = [[ppt + 11]*512 + i + 1];
+    if([[ppt + 11]*512 + i] == 1) then
+        alias index R11;
+        index = [[ppt + 11]*512 + i + 1];
+        [SEMAPHORE_TABLE + 4*(index) + 1] = [SEMAPHORE_TABLE + 4*(index) + 1] + 1;
+    endif;
+
+    i = i + 2;
+endwhile;
+
+i = 0;
+while(i < 10) do
+    [DISK_MAP_TABLE + child * 10 + i] = [DISK_MAP_TABLE + pid * 10 + i];
+    i = i + 1;
+endwhile;
+
+i = 0;
+while(i < 8) do
+    [[cpt + 14] + 2*i] = [[ppt + 14] + 2*i];
+    [[cpt + 14] + 2*i + 1] = [[ppt + 14] + 2*i + 1];
+    [MEMORY_FREE_LIST + [[cpt + 14] + 2*i]] = [MEMORY_FREE_LIST + [[cpt+ 14] + 2*i]] + 1;
+    i = i + 1;
+endwhile;
+
+i = 0;
+while(i < 512) do
+    [[[cpt + 14] + 16]*512 + i] = [[[ppt + 14] + 16]*512 + i];
+    i = i + 1;
+endwhile;
+
+i = 0;
+while(i < 512) do
+    [[[cpt + 14] + 18]*512 + i] = [[[ppt + 14] + 18]*512 + i];
+    i = i + 1;
+endwhile;
+
+[[PROCESS_TABLE + child * 16 + 11]*512]  = BP;
+alias parentRet R8;
+alias childRet R9;
+
+parentRet = [PROCESS_TABLE + pid * 16 + 13];
+[([[PROCESS_TABLE + pid * 16 + 14] + 2*((parentRet - 1)/512)]*512) + ((parentRet - 1)%512)] = child;
+
+childRet = [PROCESS_TABLE + child * 16 + 13];
+[([[PROCESS_TABLE + child * 16 + 14] + 2*((childRet - 1)/512)]*512) + ((childRet - 1)%512)] = 0;
+
+[PROCESS_TABLE + pid * 16 + 9] = 0;
+SP = [PROCESS_TABLE + pid * 16 + 13];
+ireturn;

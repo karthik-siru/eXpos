@@ -43,6 +43,7 @@
 
    multipop(R4,R5);
 
+
 // allocate stack pages  
    multipush(R4,R5);
    // get free page
@@ -86,10 +87,10 @@
 // copy per process page table 
       i=496;
       while(i<512) do 
-         [[PROCESS_TABLE +childPid*16+11]+i]=[[PROCESS_TABLE +parentPid*16+11]+i];
+         [[PROCESS_TABLE +childPid*16+11]*512+i]=[[PROCESS_TABLE +parentPid*16+11]*512 +i];
          // if the resource is semaphore copy that too.  
-         if([[childPTBR+11]*512+2*i+496]==1) then          
-            semTableID=[[childPTBR+11]*512+2*i+496+1];
+         if([[childPTBR+11]*512+i]==1) then          
+            semTableID=[[childPTBR+11]*512+i+1];
             [SEMAPHORE_TABLE+4*semTableID+1]=[SEMAPHORE_TABLE+4*semTableID+1]+1;
          endif;
          i=i+1;

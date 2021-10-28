@@ -1,0 +1,18 @@
+
+int main()
+{
+    decl
+        int ret;
+        str file,str1;
+    enddecl
+    begin
+        str1="Filenames are";
+        ret=exposcall("Write",-2,str1);
+        ret=exposcall("Fork");
+        write("ID");
+        write(ret);
+        ret=exposcall("Read",-1,file);
+        ret=exposcall("Exec",file);
+        return 0;
+    end
+}

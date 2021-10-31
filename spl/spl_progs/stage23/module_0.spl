@@ -1,0 +1,169 @@
+alias funcNum R1;
+alias cpid R2;
+
+
+//ACQUIRE DISK 
+
+	if (funcNum == 3)then
+
+		while([DISK_STATUS_TABLE] == 1)do
+			//SET THE STATE 
+			    [PROCESS_TABLE + cpid*16 + 4] = WAIT_DISK;
+			//CALL SCHEDULER
+				multipush(  R1, R2, R3);
+				call MOD_5;
+				multipop(R1, R2, R3 );
+		endwhile;
+
+
+		//SET THE DISK STATUS 
+			[DISK_STATUS_TABLE] = 1;
+			[DISK_STATUS_TABLE+4] = cpid;
+			return;
+
+	endif;
+
+//Aquire Inode 
+    if(funcNum == 4)then
+	    alias inodeIndex R3;
+		//loop until we get the file
+		while([FILE_STATUS_TABLE + inodeIndex*4] != -1)do
+			[PROCESS_TABLE+ 16*cpid+ 4] = WAIT_FILE;
+			[PROCESS_TABLE+ 16*cpid+ 5] = inodeIndex;
+			multipush(R1,R2,R3);
+			call MOD_5;
+			multipop(R1,R2,R3);
+		endwhile;
+		//invalid entry due to file deletion
+		if([INODE_TABLE + 16*inodeIndex +1] == -1)then
+		   R0 = -1;
+		   return;
+		endif;
+		[FILE_STATUS_TABLE + 4*inodeIndex] =cpid;
+		R0 =0;
+		return;
+	endif;
+
+// Release Inode 
+
+	if(funcNum == 5)then
+	   alias inodeIndex R3;
+	   if([FILE_STATUS_TABLE + 4*inodeIndex] != cpid)then
+	      R0 = -1;
+		  return;
+	   endif;
+
+	   [FILE_STATUS_TABLE + 4*inodeIndex] = -1;
+
+	   alias i R4;
+	   i =0;
+	   while(i<16) do
+			if(([PROCESS_TABLE+ 16*i+ 4]==WAIT_FILE)&&([PROCESS_TABLE+ 16*i+ 5]==inodeIndex)) then
+				[PROCESS_TABLE+ 16*i+4] = READY;
+				[PROCESS_TABLE+ 16*i+ 5] = -1;
+			endif;
+			i=i+1;
+       endwhile;
+       R0=0;
+       return;
+
+	endif;
+
+// Acquire Semaphore 
+	if(funcNum==6) then
+		alias i R11;
+	
+		i=0;
+		alias index R12;
+		index=-1;
+		while(i<32) do
+			if([SEMAPHORE_TABLE+4*i+1]==0) then 
+				index=i;
+				break;
+			endif;
+			i=i+1;
+		endwhile;
+		// no free entry 
+			if(index==-1) then 
+				R0=-1;
+				return;
+			endif;
+		[SEMAPHORE_TABLE+4*index]=cpid;
+		[SEMAPHORE_TABLE+4*index+1]=1;
+		R0=index;
+		return;
+	endif;
+
+
+// Release Semaphore 
+	if(funcNum==7) then 
+		alias semTableID R11;
+		semTableID = R3;
+		alias i R12;
+		i=0;
+		if([SEMAPHORE_TABLE+4*semTableID]==cpid) then
+			[SEMAPHORE_TABLE+4*semTableID]=-1;
+			// set the state of the process waititng for
+			// this semaphore to READY .
+			while(i<16) do 
+				if(([PROCESS_TABLE+i*16+4]==WAIT_SEMAPHORE)&&([PROCESS_TABLE+i*16+5]==semTableID)) then
+					[PROCESS_TABLE+i*16+4]=READY;
+					[PROCESS_TABLE+i*16+5]=-1;
+				endif;
+				i=i+1;
+			endwhile;
+		endif;
+		[SEMAPHORE_TABLE+4*semTableID+1]=[SEMAPHORE_TABLE+4*semTableID+1]-1;
+		R0=0;
+		return;
+	endif;
+	
+
+//ACQUIRE TERMINAL 
+	if (funcNum == 8)then
+		//loop  until terminal is free ..
+			while( ([TERMINAL_STATUS_TABLE] ) == 1) do
+
+				[ (PROCESS_TABLE + (cpid * 16)) + 4 ] = WAIT_TERMINAL;
+				multipush(R1, R2);
+				call MOD_5;
+				multipop( R1, R2);
+
+			endwhile;
+
+			[TERMINAL_STATUS_TABLE] = 1;
+			[TERMINAL_STATUS_TABLE + 1] = cpid;
+			return;
+
+	endif;
+
+
+
+// RELEASE TERMINAL
+	if(funcNum == 9)then
+	
+		if([TERMINAL_STATUS_TABLE + 1] == cpid) then
+
+				[TERMINAL_STATUS_TABLE] = 0;
+				alias id R6;
+				id=1;
+				while(id<=15) do
+					if([PROCESS_TABLE+16*id+4] == WAIT_TERMINAL) then
+						[PROCESS_TABLE+16*id+4]=READY;
+					endif;
+					id=id+1;
+				endwhile;
+
+				R0=0; // sucess 
+				return;
+
+		else
+
+				R0=-1;
+				return;
+
+		endif;
+	
+	endif;
+
+return;

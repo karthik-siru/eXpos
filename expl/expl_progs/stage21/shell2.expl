@@ -25,6 +25,7 @@ begin
                 endif;
             endif;
         else
+            breakpoint;
             temp = exposcall("Shutdown");
             break;
         endif;

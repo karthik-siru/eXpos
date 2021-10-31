@@ -1,0 +1,237 @@
+// --------- CREATE & DELETE File -------
+
+   alias userSp R1 ;
+   userSp = SP;
+
+// save SP and switch to kernel mode 
+   [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13] = SP;
+   SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 11]*512 -1 ;
+
+// extract sysCall No. from userStack 
+   
+    alias sysCall R2;
+    sysCall=[[PTBR+2*((userSp-5)/512)]*512 + (userSp-5)%512];
+
+    alias retAddress R3;
+    retAddress=[PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512;
+
+    alias fileName R4;
+    fileName=[[PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512];
+
+    alias pt R13;
+    pt=PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16;
+
+
+
+// Create File 
+
+   if (sysCall ==1 )then 
+      //set the mode 
+        [pt + 9] =1;
+        alias permission R5;
+        permission=[[PTBR+2*((userSp-3)/512)]*512 + (userSp-3)%512];
+        alias i R6;
+        i=0;
+      // check for file (already exits)
+        while(i<MAX_FILE_NUM) do
+            if([INODE_TABLE+16*i+1]==fileName) then 
+                R0=0;
+                [retAddress]=R0;
+                [pt + 9] =0;
+                SP=userSp;
+                ireturn;
+            endif;
+            i=i+1;
+        endwhile;
+
+      // get a free entry 
+        alias freeInodeIndex R7;
+        freeInodeIndex = -1;
+        i = 0;
+
+        while (i<MAX_FILE_NUM)do
+            if([INODE_TABLE+16*i+1]==-1) then
+                freeInodeIndex=i;
+                break;
+            endif;
+            i=i+1;
+        endwhile;
+     // no free entry found
+        if(freeInodeIndex == -1)then
+            R0= -1;
+            [retAddress] = R0;
+            [pt + 9] =0;
+            SP = userSp;
+            ireturn;
+        endif;
+
+    // entries of inode-table
+        alias inodeEntry R8;
+        inodeEntry=INODE_TABLE+16*freeInodeIndex;
+        [inodeEntry+1]=fileName;      
+        [inodeEntry+2]=0;             
+        [inodeEntry+0]=DATA;        
+        i=8;
+        while(i<12) do
+            [inodeEntry+i]=-1;
+        i=i+1;
+        endwhile;
+    // entries for root-table
+        alias rootEntry R4;
+        rootEntry=ROOT_FILE+8*freeInodeIndex;
+        [inodeEntry+3]=[pt+3]; 
+        [inodeEntry+4]=permission;  
+        [rootEntry+0]=fileName;
+        [rootEntry+1]=0;
+        [rootEntry+2]=DATA;
+        [rootEntry+3]=[USER_TABLE+2*[pt+3]];
+        [rootEntry+4]=permission;
+        
+    //reset the mode and return 
+        [pt+9]=0;
+        R0=0;
+        [retAddress]=R0;
+        SP=userSp;
+        ireturn;
+
+   endif;
+
+//Delete File 
+   
+   if (sysCall == 4)then 
+
+        [pt + 9] =4;
+        alias i R6;
+        i=0;
+
+      // get a inode index 
+        alias inodeIndex R7;
+        inodeIndex = -1;
+        i = 0;
+
+        while (i<MAX_FILE_NUM)do
+            if([INODE_TABLE+16*i+1]==fileName) then
+                inodeIndex=i;
+                break;
+            endif;
+            i=i+1;
+        endwhile;
+     // file not exits
+        if(inodeIndex == -1)then
+            R0=0;
+            [retAddress] = R0;
+            [pt+ 9] =0;
+            SP = userSp;
+            ireturn;
+        endif;
+
+        alias inodeEntry R8;
+
+        inodeEntry=INODE_TABLE+16*inodeIndex;
+    // not a DATA file
+        if([inodeEntry+0]!=DATA) then      
+            R0=-1;
+            [retAddress]=R0;
+            [pt + 9] =0;
+            SP=userSp;
+            ireturn;
+        endif;
+        if([inodeEntry+4]==0) then 
+    //exclusive bit is set
+            if(([pt+3]!=1)&&([inodeEntry+3]!=[pt+3])) then
+            // current user is not root and current user do not own the file
+                R0=-1;
+                [retAddress]=R0;
+                [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9] =0;
+                SP=userSp;
+                ireturn;
+            endif;
+        endif;
+
+    //Acquire Inode 
+        multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R13);
+        R1 = 4;
+        R2 = [SYSTEM_STATUS_TABLE +1];
+        R3 = inodeIndex;
+        call MOD_0;
+        multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R13);   
+    
+    // file was deleted by the time of inode acquisition
+        if(R0==-1) then 
+            R0=0;
+            [retAddress]=R0;
+            [pt +9] =0;
+            SP=userSp;
+            ireturn;
+        endif;    
+    // file is open, cannot be deleted
+
+        if([FILE_STATUS_TABLE+4*inodeIndex+1]!=-1) then 
+          //release inode
+                multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R13);
+                R1=5;
+                R2=[SYSTEM_STATUS_TABLE+1];
+                R3=inodeIndex;
+                call MOD_0;
+                multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R13);   
+            R0=-2;
+            [retAddress]=R0;
+            SP=userSp;
+            ireturn;
+        endif;
+
+        i=8;
+        alias blockNum R9;
+        alias j R14;
+        while(i<12) do
+            blockNum=[inodeEntry+i];        
+            if(blockNum!=-1) then
+                j=0;
+                while(j<4) do
+                    if(([BUFFER_TABLE+4*j]==blockNum)&&([BUFFER_TABLE+4*j+1]==1)) then
+                    // block is in buffer and dirty bit is set
+                        [BUFFER_TABLE+4*j+1]=0;
+                        multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R13);
+                        R1=4; // release block
+                        R2=blockNum;
+                        R3=[SYSTEM_STATUS_TABLE+1];
+                        call MOD_1;
+                        multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R13);   
+                    endif;
+                    j=j+1;
+                endwhile;
+            endif;
+            i=i+1;
+        endwhile;
+        i=0;
+        // invalidating inode entry
+            while(i<16) do  
+                [inodeEntry+i]=-1;
+                i=i+1;
+            endwhile;
+            [inodeEntry+2]=0;
+        //invalidating root entry
+            alias rootEntry R4;
+            rootEntry=ROOT_FILE+8*inodeIndex;
+            i=0;
+            while(i<8) do  
+                [rootEntry+i]=-1;
+                i=i+1;
+            endwhile;
+            [rootEntry+1]=0;
+        
+        //release inode
+            multipush(R1,R10,R12,R13);
+            R1=5; 
+            R2=[SYSTEM_STATUS_TABLE+1];
+            R3=inodeIndex;
+            call MOD_4;
+            multipop(R1,R10,R12,R13);
+        // reset mode and return 
+            [pt+9]=0;
+            R0=0;
+            [retAddress]=R0;
+            SP=userSp;
+            ireturn;
+        
+   endif;

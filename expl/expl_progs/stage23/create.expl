@@ -1,0 +1,21 @@
+int main()
+{
+    decl
+        int ret,retVal,permBit;
+        str string1,string2,string3,filename;
+    enddecl
+    begin
+        string1="Filename";
+        ret=exposcall("Write",-2,string1);
+        ret=exposcall("Read",-1,filename);
+        string2="PermissionBit";
+        ret=exposcall("Write",-2,string2);
+        ret=exposcall("Read",-1,permBit);
+        retVal=exposcall("Create",filename,permBit);
+        breakpoint;
+        string3="Return val";
+        ret=exposcall("Write",-2,string3);
+        ret=exposcall("Write",-2,retVal);
+        return 0;
+    end
+}

@@ -89,7 +89,7 @@
       [childPTBR+12]=0; 
       [childPTBR+13]=[parentPTBR+13]; 
 
-// copy per process page table 
+// copy per process resource table 
       i=496;
       while(i<512) do 
          [[childPTBR+11]*512 +i]=[[parentPTBR+11]*512 +i];
@@ -103,7 +103,7 @@
       i=i+1;
    endwhile;
 
-// copy page table entries except stack 
+// copy page table entries
    i=0;
    while(i<8) do 
       [[childPTBR+14]+2*i]=[[parentPTBR+14]+2*i];

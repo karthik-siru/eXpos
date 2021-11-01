@@ -67,6 +67,7 @@ multipop(R1, R2, R3, R4);
 //copy userid, swap, ua swap stats, inode index, UPTR
 alias pp R5;
 alias cp R6;
+alias semTableID R8;
 pp = PROCESS_TABLE + (ppid*16);
 cp = PROCESS_TABLE + (cpid*16);
 [cp + 3] = [pp + 3];
@@ -102,7 +103,14 @@ endwhile;
 
 count = 496;
 while(count < 512)do
-    [[cp + 11] + count] = [[pp + 11] + count];    
+    [[cp + 11]*512  + count] = [[pp + 11]*512 + count];
+    if([[cp+11]*512+i]== SEMAPHORE) then          
+        semTableID=[[cp+11]*512+i+1];
+        [SEMAPHORE_TABLE+4*semTableID+1]=[SEMAPHORE_TABLE+4*semTableID+1]+1;
+    endif; 
+    if([[cp +11]*512 + count] == FILE )then 
+        [OPEN_FILE_TABLE + [[cp +11]*512 +count +1 ]*4 + 1] = [OPEN_FILE_TABLE + [[cp +11]*512 +count +1 ]*4 + 1] +1;
+    endif;  
     count = count + 1;
 endwhile;
 

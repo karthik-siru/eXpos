@@ -3,7 +3,7 @@
    userSp = SP;
 
    alias pt R2;
-   pt = PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 
+   pt = PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 ;
 
    [pt+ 13] = SP;
    SP = [pt + 11]*512 -1;
@@ -24,7 +24,7 @@
             [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9] = 2;
 
             alias fileName R5;
-            fileName = [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512];
+            fileName = [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512;
 
             alias userAreaPage R6;
             userAreaPage = [pt + 11];
@@ -90,8 +90,8 @@
                 ireturn;
             endif;
 
-        alias fileEntry R6;
-        fileEntry = userAreaPage *512 + 496 + fileDescriptor*2;
+        alias fileEntry R7;
+        fileEntry = userAreaPage*512 + 496 + fileDescriptor*2;
        // not a file entry  
         if([fileEntry]== -1 || [fileEntry]!= FILE )then 
             [retAddress] = -1 ;

@@ -7,6 +7,10 @@ loadi(66,8);
 loadi(10,23);
 loadi(11,24);
 
+//load int-5
+loadi(12,25);
+loadi(13,26);
+
 //load int-6 
 loadi(14,27);
 loadi(15,28);
@@ -73,6 +77,10 @@ loadi(43,56);
 //load module 2
 loadi(44,57);
 loadi(45,58);
+
+//load module 3
+loadi(46,59);
+loadi(47,60);
 
 //load module 4 
 loadi(48,61);
@@ -195,10 +203,19 @@ endwhile;
 	endwhile;
 
  // initialization of buffer table
+    i =0;
 	while(i<4) do 
 		[BUFFER_TABLE+4*i]=-1;
 		[BUFFER_TABLE+4*i+2]=-1;
 		[BUFFER_TABLE+4*i+1]=0;
+		i=i+1;
+	endwhile;
+
+ // initialization of openfileTable 
+    i =0;
+	while(i<32)do
+	    [OPEN_FILE_TABLE+4*i]=-1;
+		[OPEN_FILE_TABLE+4*i+1]=0;
 		i=i+1;
 	endwhile;
 

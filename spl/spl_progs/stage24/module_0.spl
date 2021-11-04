@@ -2,6 +2,51 @@ alias funcNum R1;
 alias cpid R2;
 
 
+//ACQUIRE BUFFER 
+    
+	if(funcNum == 1)then 
+		alias bufferNo R3;
+		// loop untill we get the buffer
+		while([BUFFER_TABLE + bufferNo*4 +2] != -1)do
+			[PROCESS_TABLE+16*cpid+4] = WAIT_BUFFER;
+			[PROCESS_TABLE + 16*cpid +5]= bufferNo;
+
+			multipush(R1,R2,R3);
+			call MOD_5;
+			multipop(R1,R2,R3);
+		endwhile;
+		// locking pid 
+		[BUFFER_TABLE + 4*bufferNo +2] = cpid;
+		return;
+	endif;
+
+//RELEASE BUFFER 
+   if(funcNum == 2)then 
+		alias bufferNo R3;
+		// not aquired by current process 
+		if(cpid != [BUFFER_TABLE+4*bufferNo+2]) then
+			R0=-1;
+			return;
+		endif;
+
+		[BUFFER_TABLE+4*bufferNo+2]=-1;
+
+		alias i R4;
+		i=0;
+		// reset the process waiting for this process 
+		while(i<=15) do
+			if([PROCESS_TABLE+16*i+4]==WAIT_BUFFER &&
+				[PROCESS_TABLE+16*i+5]==bufferNo) then
+
+				[PROCESS_TABLE+16*i+4]=READY;
+			endif;
+			i=i+1;
+		endwhile;
+
+		R0=0;
+		return;
+   endif;
+
 //ACQUIRE DISK 
 
 	if (funcNum == 3)then

@@ -104,8 +104,8 @@ endwhile;
 count = 496;
 while(count < 512)do
     [[cp + 11]*512  + count] = [[pp + 11]*512 + count];
-    if([[cp+11]*512+i]== SEMAPHORE) then          
-        semTableID=[[cp+11]*512+i+1];
+    if([[cp+11]*512+ count]== SEMAPHORE) then          
+        semTableID=[[cp+11]*512+count+1];
         [SEMAPHORE_TABLE+4*semTableID+1]=[SEMAPHORE_TABLE+4*semTableID+1]+1;
     endif; 
     if([[cp +11]*512 + count] == FILE )then 

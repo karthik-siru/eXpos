@@ -11,20 +11,20 @@
 //get fileDescriptor 
      alias fileDescriptor R2;
      alias retAddress R3;
+     alias buffer R4;
 
+     buffer = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + ((userSP - 3) % 512)];
      retAddress = ([PTBR + 2 *((userSP - 1)/512)]*512) +((userSP-1)%512);
      fileDescriptor=[[PTBR + 2 * ((userSP - 4)/ 512)] + (userSP - 4) % 512 ];
 
 //TERMINAL 
      if(fileDescriptor == -1 )then
-          alias word R4;
-          word = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + ((userSP - 3) % 512)];
 
           multipush(R0, R1,R2,R3,R4,R5,R6);
 
           R1 = TERMINAL_READ;
           R2 = [SYSTEM_STATUS_TABLE + 1];
-          R3 = word;
+          R3 = buffer;
 
           call MOD_4;
      
@@ -66,7 +66,7 @@
           alias openFileEntry R8;
           openFileEntry=OPEN_FILE_TABLE+4*[fileEntry+1];
           alias inodeIndex R9;
-          inodeIndex=[openfileEntry];
+          inodeIndex=[openFileEntry];
 
           multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9);
                R1=ACQUIRE_INODE ; 
@@ -81,10 +81,66 @@
              SP = userSP;
              ireturn;
           endif;
-          
 
+          alias Lseek R10;
+          Lseek = [openFileEntry +2 ];
+          alias bufferAddr R11;
+          bufferAddr=[PTBR+2*(buffer/512)]*512+(buffer%512);
+
+          // root file 
+          if([openFileEntry]==INODE_ROOT) then
+               if(Lseek==480) then
+                    multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+                    R1= RELEASE_INODE; 
+                    R2=[SYSTEM_STATUS_TABLE+1];
+                    R3=inodeIndex;
+                    call RESOURCE_MANAGER;
+                    multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+                    [retAddress]=-2;
+                    [pt + 9] =0;
+                    SP=userSP;
+                    ireturn;
+               endif;
+               [bufferAddr]=[ROOT_FILE+Lseek];
+               Lseek=Lseek+1;
+               [openFileEntry+2]=Lseek;
+          else
+          // end of file 
+               if(Lseek==[INODE_TABLE+16*inodeIndex+2]) then  
+                    multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+                    R1=RELEASE_INODE; 
+                    R2=[SYSTEM_STATUS_TABLE+1];
+                    R3=inodeIndex;
+                    call RESOURCE_MANAGER;
+                    multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+                    [retAddress]=-2;
+                    SP=userSP;
+                    ireturn;
+               endif;
+               //Buffer Read 
+               multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+               R1=2;                                         
+               R2=[INODE_TABLE+16*inodeIndex+8+(Lseek/512)];  
+               R3=Lseek%512;                               
+               R4=bufferAddr;
+               call FILE_MANAGER;
+               multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+               Lseek=Lseek+1;
+               [openFileEntry+2]=Lseek;
+          endif;
+
+
+          multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+          R1=RELEASE_INODE; 
+          R2=[SYSTEM_STATUS_TABLE+1];
+          R3=inodeIndex;
+          call RESOURCE_MANAGER;
+          multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11);
+
+          [pt+9]=0;
+          [retAddress]=0;
+          SP=userSP;
+          ireturn;           
+        
      endif;
 
-
-
-     

@@ -80,7 +80,6 @@
         alias rootEntry R4;
         rootEntry=ROOT_FILE+8*freeInodeIndex;
         [inodeEntry+3]=[pt+3]; 
-        [inodeEntry+4]=permission;  
         [rootEntry+0]=fileName;
         [rootEntry+1]=0;
         [rootEntry+2]=DATA;
@@ -136,8 +135,8 @@
             SP=userSp;
             ireturn;
         endif;
-        if([inodeEntry+4]==0) then 
     //exclusive bit is set
+        if([inodeEntry+4]==0) then 
             if(([pt+3]!=1)&&([inodeEntry+3]!=[pt+3])) then
             // current user is not root and current user do not own the file
                 R0=-1;
@@ -164,7 +163,6 @@
             SP=userSp;
             ireturn;
         endif;    
-    // file is open, cannot be deleted
 
         if([FILE_STATUS_TABLE+4*inodeIndex+1]!=-1) then 
           //release inode

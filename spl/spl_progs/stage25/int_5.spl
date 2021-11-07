@@ -1,0 +1,200 @@
+// save the Sp and switch to kernel stack 
+   alias userSp R1;
+   userSp = SP;
+
+   alias pt R2;
+   pt = PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 ;
+
+   [pt+ 13] = SP;
+   SP = [pt + 11]*512 -1;
+
+// extract syscall no.  
+   
+    alias sysCall R3;
+    sysCall=[[PTBR+2*((userSp-5)/512)]*512 + (userSp-5)%512];
+
+    alias retAddress R4;
+    retAddress=[PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512;
+
+// Open Syscall  
+   
+   if(sysCall ==2 )then
+        // set the mode 
+            [pt+ 9] = 2;
+
+            alias fileName R5;
+            fileName = [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512;
+
+            alias userAreaPage R6;
+            userAreaPage = [pt + 11];
+
+            alias i R7;
+            alias fileDescriptor R8;
+            i = 0;
+            fileDescriptor  = -1 ;
+            // get a free entry in resource table 
+                while(i <8)do 
+                    if([userAreaPage*512 + 496 + 2*i] == -1 )then 
+                        fileDescriptor  = i;
+                        break;
+                    endif;
+                    i = i+1;
+                endwhile;
+            // not found then return -3 
+                if(fileDescriptor == -1)then 
+                [retAddress] = -3;
+                [pt + 9] = 0;
+                SP = userSp;
+                ireturn;
+                endif;
+
+            // Open 
+            multipush (R1,R2,R3,R4,R5,R6,R7,R8);
+            R1 = 3;
+            R2 = fileName ;
+            call MOD_3;
+            multipop (R1,R2,R3,R4,R5,R6,R7,R8);
+            // max instances reached or file not dat 
+            if(R0 ==-1 || R0 ==-2 )then 
+                [retAddress] = R0;
+                [pt + 9] = 0;
+                SP = userSp;
+                ireturn;
+            endif;
+
+            // entry in resource table for file 
+            [userAreaPage*512 + 496 + fileDescriptor*2 ] = FILE;
+            [userAreaPage*512 + 496 + fileDescriptor*2 +1 ] = R0;
+
+            [pt + 9] = 0;
+            SP = userSp;
+            [retAddress] = fileDescriptor;
+            ireturn;
+   endif;
+
+// Close SysCall  
+   
+   if(sysCall == 3)then 
+       [pt + 9] = 3;
+       alias fileDescriptor R5;
+       fileDescriptor = [[PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512] ;
+       alias  userAreaPage R6;
+       userAreaPage = [pt + 11];
+       
+       // fileDescriptor invalid 
+            if(fileDescriptor <0  || fileDescriptor >7)then 
+                [pt +9] =0 ;
+                [retAddress] = -1;
+                SP = userSp;
+                ireturn;
+            endif;
+
+        alias fileEntry R7;
+        fileEntry = userAreaPage*512 + 496 + fileDescriptor*2;
+       // not a file entry  
+        if([fileEntry]== -1 || [fileEntry]!= FILE )then 
+            [retAddress] = -1 ;
+            [pt + 9] =0;
+            SP = userSp;
+            ireturn;
+        endif;
+
+        // Close 
+        multipush (R1,R2,R3,R4,R5,R6,R7,R8);
+            R1 = 4;
+            R2 = [fileEntry +1] ;
+            call MOD_3;
+        multipop (R1,R2,R3,R4,R5,R6,R7,R8);
+
+        // invalidate resource entries 
+        [fileEntry] = -1 ;
+        [fileEntry + 1] = -1 ;
+        
+        // return values 
+        [retAddress] =0;
+        [pt + 9] =0;
+        SP = userSp;
+        ireturn;
+          
+   endif;
+
+// Seek Syscall  
+   if (sysCall == 6 )then 
+        [pt+9]=6; 
+        alias fd R5;
+        fd=[[PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512];
+        // invalid fd 
+        if((fd<0)||(fd>7)) then 
+            [retAddress]=-1;
+            [pt + 9] =0;
+            SP=userSp;
+            ireturn;
+        endif;
+
+        alias fdEntry R6;
+        fdEntry=[pt+11]*512+496+2*fd;
+        if(([fdEntry]==-1)||([fdEntry]!=FILE)) then //invalid fd
+            [retAddress]=-1;
+            [pt + 9] =0;
+            SP=userSp;
+            ireturn;
+        endif;
+
+        alias openfileEntry R6;
+        openfileEntry=OPEN_FILE_TABLE+4*[fdEntry+1];
+        alias inodeIndex R7;
+        inodeIndex=[openfileEntry];
+        // Acquire Inode 
+        multipush(R1,R2,R3,R4,R5,R6,R7);
+        R1=4; 
+        R2=[SYSTEM_STATUS_TABLE+1];
+        R3=inodeIndex;
+        call RESOURCE_MANAGER;
+        multipop(R1,R2,R3,R4,R5,R6,R7);
+        
+        // get Lseek 
+        alias Lseek R8;
+        Lseek=[openfileEntry+2];
+        alias offset R9;
+        offset=[[PTBR+2*((userSp-3)/512)]*512 + (userSp-3)%512];
+        alias filesize R10;
+        if([openfileEntry]==INODE_ROOT) then
+            filesize = 480;
+        else
+            filesize = [INODE_TABLE+16*inodeIndex+2];
+        endif;
+        // Out of file & so release inode 
+        if(Lseek+offset<0) then
+            multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+            R1=5; 
+            R2=[SYSTEM_STATUS_TABLE+1];
+            R3=inodeIndex;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+            [retAddress]=-2;
+            [pt+9]=0; 
+            SP=userSp;
+            ireturn;
+        endif;
+        // starting of the page 
+        if(offset==0) then      
+            [openfileEntry+2]=0;
+        else
+            if((Lseek+offset)>filesize) then 
+                [openfileEntry+2]=filesize;
+            else
+                [openfileEntry+2]=[openfileEntry+2]+offset;
+            endif;
+        endif;
+        //Release Inode 
+        multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+        R1=5; 
+        R2=[SYSTEM_STATUS_TABLE+1];
+        R3=inodeIndex;
+        call RESOURCE_MANAGER;
+        multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+        [pt+9]=0; 
+        SP=userSp;
+        [retAddress]=0;
+        ireturn;
+    endif;

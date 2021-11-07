@@ -1,0 +1,19 @@
+int main()
+{
+    decl
+        int fd,ret1,ret2,ret3;
+        str filename;
+    enddecl
+    begin
+        fd=exposcall("Open","root");
+        ret1=0;
+        while(ret1==0) do
+            ret1=exposcall("Read",fd,filename);
+            if(filename!="-1") then
+                ret2=exposcall("Write",-2,filename);
+            endif;
+            ret3=exposcall("Seek",fd,7);
+        endwhile;
+        return 0;
+    end
+}

@@ -1,0 +1,56 @@
+int main()
+{
+    decl
+        int ret,retVal,fd1,fd2;
+        str filename1,filename2,buff;
+    enddecl
+    begin
+        ret=exposcall("Write",-2,"filename1");
+        ret=exposcall("Read",-1,filename1);
+        ret=exposcall("Write",-2,"filename2");
+        ret=exposcall("Read",-1,filename2);
+
+        fd1=exposcall("Open",filename1);
+        retVal=0;
+        if(fd1==-1) then
+            ret=exposcall("Write",-2,"File1NotFound");
+            retVal=-1;
+        endif;
+        if(fd1==-2) then
+            ret=exposcall("Write",-2,"OpenLimReached");
+            retVal=-1;
+        endif;
+        if(fd1==-3) then
+            ret=exposcall("Write",-2,"ResLimReached");
+            retVal=-1;
+        endif;
+        if(retVal==0) then 
+            fd2=exposcall("Open",filename2);
+            if(fd2==-1) then
+                ret=exposcall("Write",-2,"File2NotFound");
+                ret=exposcall("Create",filename2);
+                ret=exposcall("Write",-2,"File2Created");
+                fd2=exposcall("Open",filename2);
+            endif;
+            if(fd2==-2) then
+                ret=exposcall("Write",-2,"OpenLimReached");
+                retVal=-1;
+            endif;
+            if(fd2==-3) then
+                ret=exposcall("Write",-2,"ResLimReached");
+                retVal=-1;
+            endif;
+        endif;
+
+        while(retVal==0) do
+            retVal=exposcall("Read",fd1,buff);
+            ret=exposcall("Write",fd2,buff);
+        endwhile;
+        if(retVal==-2) then
+            ret=exposcall("Write",-2,"COPIED");
+            ret=exposcall("Close",fd1);
+            ret=exposcall("Close",fd2);
+        endif;
+        return 0;
+    end
+}

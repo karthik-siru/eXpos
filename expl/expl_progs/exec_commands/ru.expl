@@ -1,0 +1,32 @@
+int main()
+{
+    decl
+        int ret,retVal,fd;
+        str userName,uname,filename;
+    enddecl
+    begin
+        ret=exposcall("Write",-2,"User Name");
+        ret=exposcall("Read",-1,userName);
+        fd=exposcall("Open","root");
+        retVal=exposcall("Read",fd,filename);
+        while(retVal==0) do
+            ret=exposcall("Seek",fd,2);
+            ret=exposcall("Read",fd,uname);
+            if(uname==userName) then
+                retVal=exposcall("Delete",filename);
+                if(retVal==0) then
+                    ret=exposcall("Write",-2,"SUCCESS");
+                endif;
+                if(retVal==-1) then 
+                    ret=exposcall("Write",-2,"Perm denied");
+                endif;
+                if(retVal==-2) then
+                    ret=exposcall("Write",-2,"file is open");
+                endif;
+            endif;
+            ret=exposcall("Seek",4);
+            retVal=exposcall("Read",fd,filename);
+        endwhile;
+        return 0;
+    end
+} 

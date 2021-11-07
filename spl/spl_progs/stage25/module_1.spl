@@ -194,7 +194,7 @@ alias i R4;
         endwhile;
 
     // leave idle and init and invoke exit 
-        i = 2;
+        i = 3;
         while(i < MAX_PROC_NUM -1)do
            if((i!= cpid )&& ([PROCESS_TABLE +16*i +4] == TERMINATED ) )then 
                multipush(R1,R2,R3,R4);

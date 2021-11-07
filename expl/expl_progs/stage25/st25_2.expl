@@ -1,0 +1,31 @@
+int main()
+{
+    decl
+        int a,ret,i,permBit,fd,buff;
+        str string1,string2,string3,filename;
+    enddecl
+    begin
+        string1="Filename";
+        ret=exposcall("Write",-2,string1);
+        ret=exposcall("Read",-1,filename);
+        fd=exposcall("Open",filename);
+        ret=exposcall("Seek",fd,2049);
+        i=2000;
+        while(i<=2513) do
+            ret=exposcall("Write",fd,i);
+            i=i+1;
+        endwhile;
+        a=0;
+        ret=exposcall("Seek",fd,2049);
+        while(1==1) do
+            a=exposcall("Seek",fd,-1);
+            if(a==-2) then
+                break;
+            endif;
+            ret=exposcall("Read",fd,buff);
+            a=exposcall("Seek",fd,-1);
+            ret=exposcall("Write",-2,buff);
+        endwhile;
+        return 0;
+    end
+}

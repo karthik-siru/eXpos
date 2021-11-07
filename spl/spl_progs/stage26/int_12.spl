@@ -1,0 +1,45 @@
+    alias userSp R1;
+    userSp = SP;
+
+    alias pt R2;
+    pt = PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16;
+
+//set the mode 
+    [pt +9] = 28;
+
+    [pt +13]= SP;
+    SP = [pt +11]*512 -1;
+
+    alias retAddress R3;
+    retAddress = [PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512;
+
+// invalid shell pid 
+    if([SYSTEM_STATUS_TABLE +1] != 2)then
+        [retAddress] = -1;
+        [pt +9]= 0;
+        SP = userSp;
+        ireturn;
+    endif;
+
+    multipush(R1,R2,R3);
+    R1 = KILL_ALL;
+    R2 = [SYSTEM_STATUS_TABLE +1];
+    call PROCESS_MANAGER ;
+    multipop(R1,R2,R3);
+
+// 
+    [pt+4]=TERMINATED;
+    [pt+5]= -1;
+    [78*512]=[67*512+1];
+    userSp=8*512;
+    [PROCESS_TABLE+1*16+4]=READY; 
+    [SYSTEM_STATUS_TABLE]=0;
+    [pt+13]=userSp;
+
+    multipush(R1,R2,R3);
+    call SCHEDULER;
+    multipop(R1,R2,R3);
+
+    [pt+9]=0;
+    SP=userSp;
+    ireturn;

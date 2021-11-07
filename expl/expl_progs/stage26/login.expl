@@ -1,0 +1,23 @@
+int main()
+{
+    decl
+        int ret,retVal;
+        str userName,Pwd;
+    enddecl
+    begin
+        while(1==1) do
+            ret=exposcall("Write",-2,"User Name");
+            ret=exposcall("Read",-1,userName);
+            ret=exposcall("Write",-2,"Password");
+            ret=exposcall("Read",-1,Pwd);
+            retVal=exposcall("Login",userName,Pwd);
+            if(retVal==-1) then
+                ret=exposcall("Write",-2,"Invalid Cred");
+            endif;
+            if(retVal==-2) then
+                ret=exposcall("Write",-2,"Perm denied");
+            endif;
+        endwhile;
+        return 0;
+    end
+}

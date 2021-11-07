@@ -1,0 +1,219 @@
+  alias userSp R1;
+  userSp = SP ;
+
+  alias pt R2;
+  pt =  PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16  ;
+
+  [pt +13]= SP ;
+  SP = [pt+11]*512 -1;
+
+  alias retAddress R3;
+  retAddress = [PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512;
+
+  alias funcNum R4;
+  funcNum = [PTBR+2*((userSp-5)/512)]*512 + (userSp-5)%512;
+
+// new user 
+  if(funcNum == 22)then 
+      //set the mode 
+        [pt + 9] = 22;
+        alias userName R5;
+        alias pswd R6;
+        userName = [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512;
+        pswd = [PTBR+2*((userSp-3)/512)]*512 + (userSp-3)%512;
+        
+        // not root user / pid != 2 
+            if(([SYSTEM_STATUS_TABLE]!=1)||([SYSTEM_STATUS_TABLE+1]!=2)) then
+                // PERMISSION DENIED 
+                [retAddress]=-2;  
+                [pt+9]=0;
+                SP = userSp;
+                ireturn;
+            endif;
+
+        alias userId R7;
+        alias i R8;
+        i =0;
+        // USER EXITS ALREADY 
+        while(i < 16)do
+            if([USER_TABLE + 2*i] == userName )then
+                [retAddress] = -1;
+                [pt +9]=0;
+                SP = userSp;
+                ireturn;
+            endif;
+            i = i +1;
+        endwhile;
+        // get a userId 
+        i=0;
+        while(i<16) do
+            if([USER_TABLE+2*i]==-1) then 
+                userId=i;
+                break;
+            endif;
+            i=i+1;
+        endwhile;
+        // users full 
+        if(i == 16)then
+            [retAddress]= -3;
+            [pt +9]=0;
+            SP = userSp;
+            ireturn;
+        endif;
+
+        encrypt pswd;
+        [USER_TABLE+2*userId]=userName;
+        [USER_TABLE+2*userId+1]=pswd;
+        [pt+9]=0;
+        [retAddress]=0;
+        SP = userSp;
+        ireturn;
+
+  endif;
+// remove user 
+  if(funcNum == 23)then
+        [pt +9]= 23;
+        alias userName R5;
+        userName = [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512;
+
+        // not root user / pid != 2 
+        if(([SYSTEM_STATUS_TABLE]!=1)||([SYSTEM_STATUS_TABLE+1]!=2)) then
+            // PERMISSION DENIED 
+            [retAddress]=-2;  
+            [pt+9]=0;
+            SP = userSp;
+            ireturn;
+        endif;
+
+        alias userId R7;
+        alias i R8;
+        i =0;
+        // get a userId 
+        while(i<16) do
+        if([USER_TABLE+2*i]==-1) then 
+            userId=i;
+            break;
+        endif;
+        i=i+1;
+        endwhile;
+        // users full 
+        if(i == 16)then
+        [retAddress]= -1;
+        [pt +9]=0;
+        SP = userSp;
+        ireturn;
+        endif;
+
+        // get 
+        i = 0;
+        while(i< MAX_FILE_NUM)do
+        if([ROOT_FILE + 8*i + 3] == userName)then
+            [retAddress] = -3;
+            [pt +9]=0;
+            SP = userSp;
+            ireturn;
+        endif;
+        i = i +1;
+        endwhile;
+        // 
+        [USER_TABLE+2*userId]=-1;
+        [USER_TABLE+2*userId+1]=-1;
+        [pt+9]=0;
+        [retAddress]=0;
+        SP = userSp;
+        ireturn;
+  endif;
+// set password 
+  if(funcNum == 24)then 
+        [pt +9]=24;
+        alias userName R5;
+        alias pswd R6;
+        userName = [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512;
+        pswd = [PTBR+2*((userSp-3)/512)]*512 + (userSp-3)%512;
+        // not root user / pid != 2 
+        if(([SYSTEM_STATUS_TABLE+1]!=2)) then
+            // unauthorised
+            [retAddress]=-1;  
+            [pt+9]=0;
+            SP = userSp;
+            ireturn;
+        endif;
+
+        alias userId R7;
+        alias i R8;
+        i =0;
+        // get a userId 
+        while(i<16) do
+            if([USER_TABLE+2*i]== userName) then 
+                userId=i;
+                break;
+            endif;
+            i=i+1;
+        endwhile;
+        // user doesn't exits 
+        if(i == 16)then
+            [retAddress]= -2;
+            [pt +9]=0;
+            SP = userSp;
+            ireturn;
+        endif;
+
+        if(([PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+3]!=userId)&&([SYSTEM_STATUS_TABLE]!=1)) then
+            [retAddress]=-1;
+            [pt+9]=0;
+            SP = userSp;
+        ireturn;
+        endif;
+
+        encrypt pswd;
+        [USER_TABLE + 2*userId + 1] = pswd;
+        [pt +9]=0;
+        [retAddress]=0;
+        SP = userSp;
+        ireturn;
+
+   endif;
+// get userName 
+  if(funcNum == 25)then
+       [pt+9]=25;
+       alias userId R5;
+       userId =  [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512;
+
+       if(userId<0 || userId >15 ||([USER_TABLE + 2*userId] == -1))then
+          [retAddress] = -1;
+          [pt+9]=0;
+          SP = userSp;
+          ireturn;
+       endif;
+       // user exits 
+       [retAddress] = [USER_TABLE +2*userId];
+       [pt+9]=0;
+       SP = userSp;
+       ireturn;
+
+  endif;
+// get userId 
+  if (funcNum == 26)then 
+       [pt +9]= 26;
+       alias userName R5;
+       userName =  [PTBR+2*((userSp-4)/512)]*512 + (userSp-4)%512;
+       alias userId R6;
+       alias i R7;
+       i =0;
+       while(i<16)do
+           if([USER_TABLE+2*i] == userName)then 
+              [retAddress]=i;
+              [pt+9]=0;
+              SP = userSp;
+              ireturn;
+           endif;
+           i = i+1;
+       endwhile;
+       // user doesn't exits 
+       [retAddress]=-1;
+       [pt+9]=0;
+       SP = userSp;
+       ireturn;
+
+  endif;
+  

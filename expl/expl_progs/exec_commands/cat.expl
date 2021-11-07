@@ -1,0 +1,33 @@
+int main()
+{
+    decl
+        int ret,retVal,fd;
+        str filename,buff;
+    enddecl
+    begin
+        ret=exposcall("Write",-2,"filename");
+        ret=exposcall("Read",-1,filename);
+        fd=exposcall("Open",filename);
+        retVal=0;
+        if(fd==-1) then
+            ret=exposcall("Write",-2,"FileNotFound");
+            retVal=-1;
+        endif;
+        if(fd==-2) then
+            ret=exposcall("Write",-2,"OpenLimReached");
+            retVal=-1;
+        endif;
+        if(fd==-3) then
+            ret=exposcall("Write",-2,"ResLimReached");
+            retVal=-1;
+        endif;
+        while(retVal==0) do
+            retVal=exposcall("Read",fd,buff);
+            ret=exposcall("Write",-2,buff);
+        endwhile;
+        if(retVal==-2) then
+            ret=exposcall("Close",fd);
+            endif;
+        return 0;
+    end
+}

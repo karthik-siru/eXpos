@@ -1,0 +1,103 @@
+   // --------- ShutDown-------
+
+   breakpoint;
+
+   alias userSp R10 ;
+   userSp = SP;
+
+// save SP and switch to kernel mode 
+   [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13] = SP;
+   SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 11]*512 -1 ;
+
+// set the mode 
+    [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=15;
+
+    alias cpid R11;
+    cpid=[SYSTEM_STATUS_TABLE+1];
+
+    alias retAddress R12;
+    retAddress=[PTBR+2*((userSp-1)/512)]*512 + (userSp-1)%512;
+
+// not shell and not root user 
+    if((cpid!=2)||([PROCESS_TABLE+cpid*16+3]!=1)) then
+        R0=-1;
+        [retAddress]=R0;
+        [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+9]=0;
+        SP=userSp;
+        ireturn;
+    endif;
+
+// kill All 
+    multipush(R10,R11,R12);
+    R1=5; 
+    R2=cpid;
+    call PROCESS_MANAGER;
+    multipop(R10,R11,R12);
+
+// check buffer table 
+    alias i R7;
+    i=0;
+
+    while(i<4) do
+       // if dirty bit is set .. store in disk  
+        if([BUFFER_TABLE+4*i+1]==1) then
+            multipush(R7,R10,R11,R12);
+            R1=1; 
+            R2=cpid;
+            R3=71+i;
+            R4=[BUFFER_TABLE+4*i];
+            call DEVICE_MANAGER;
+            multipop(R7,R10,R11,R12);
+        endif;
+        i=i+1;
+    endwhile;
+
+    alias pageNum R8;
+    alias blockNum R9;
+
+// disk free list
+    pageNum=61;        
+    blockNum=2;
+    //disk store
+        multipush(R8,R9,R10,R11,R12);
+        R1=1; 
+        R2=cpid;
+        R3=pageNum;
+        R4=blockNum;
+        call MOD_4;
+        multipop(R8,R9,R10,R11,R12);
+// root file
+    pageNum=62;          
+    blockNum=5;
+    //disk store
+        multipush(R8,R9,R10,R11,R12);
+        R1=1; 
+        R2=cpid;
+        R3=pageNum;
+        R4=blockNum;
+        call MOD_4;
+        multipop(R8,R9,R10,R11,R12);
+// inode list and user table
+    pageNum=59;        
+    blockNum=3;
+    //disk store
+        multipush(R8,R9,R10,R11,R12);
+        R1=1; 
+        R2=cpid;
+        R3=pageNum;
+        R4=blockNum;
+        call MOD_4;
+        multipop(R8,R9,R10,R11,R12);
+//inode list and usertable
+    pageNum=60;        
+    blockNum=4;
+    //disk store
+        multipush(R8,R9,R10,R11,R12);
+        R1=1; 
+        R2=cpid;
+        R3=pageNum;
+        R4=blockNum;
+        call MOD_4;
+        multipop(R8,R9,R10,R11,R12);
+
+halt;

@@ -15,7 +15,7 @@ pt = PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 ;
     retAddress = [PTBR + 2*((userSp-1)/512)]*512 + (userSp-1)%512;
 
 // invalid pid 
-    if([SYSTEM_STATUS_TABLE +1] != -1)then
+    if([SYSTEM_STATUS_TABLE +1] != 1)then
         [retAddress] = -2;
         [pt +9] =0;
         SP = userSp;

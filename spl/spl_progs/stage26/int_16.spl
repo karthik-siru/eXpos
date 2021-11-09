@@ -98,13 +98,13 @@
         endwhile;
         // users full 
         if(i == 16)then
-        [retAddress]= -1;
-        [pt +9]=0;
-        SP = userSp;
-        ireturn;
+            [retAddress]= -1;
+            [pt +9]=0;
+            SP = userSp;
+            ireturn;
         endif;
 
-        // get 
+        // check files 
         i = 0;
         while(i< MAX_FILE_NUM)do
         if([ROOT_FILE + 8*i + 3] == userName)then
@@ -157,12 +157,12 @@
             SP = userSp;
             ireturn;
         endif;
-
+       // special previlage for root 
         if(([PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+3]!=userId)&&([SYSTEM_STATUS_TABLE]!=1)) then
             [retAddress]=-1;
             [pt+9]=0;
             SP = userSp;
-        ireturn;
+            ireturn;
         endif;
 
         encrypt pswd;
